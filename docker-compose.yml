@@ -37,7 +37,7 @@ services:
       N8N_SECURE_COOKIE: "false"
       N8N_LISTEN_ADDRESS: 0.0.0.0
       N8N_DIAGNOSTICS_ENABLED: "false"
-      N8N_WEBHOOK_URL: http://localhost:${N8N_PORT:-5678}/
+      N8N_WEBHOOK_URL: http://localhost:${N8N_PORT:-5679}/
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
       TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
       TELEGRAM_CANAL_TURNOS: ${TELEGRAM_CANAL_TURNOS:-}
@@ -45,7 +45,7 @@ services:
       - n8n_data:/home/node/.n8n
       - ./n8n:/init:ro
     ports:
-      - "127.0.0.1:${N8N_PORT:-5678}:5678"   # el editor de n8n solo desde este PC; las páginas usan /api
+      - "127.0.0.1:${N8N_PORT:-5679}:5678"   # el editor de n8n solo desde este PC; las páginas usan /api
     depends_on:
       postgres:
         condition: service_healthy

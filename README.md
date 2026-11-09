@@ -21,11 +21,13 @@ Todo es gratuito y corre en Docker con un solo comando.
 ## 1. Requisitos
 
 - Docker Desktop (Windows/Mac) o Docker Engine (Linux) con `docker compose`.
-- Puertos libres: **5678** (n8n), **8080** (páginas), **8501** (dashboard) y **5433** (Postgres).
+- Puertos libres: **5679** (n8n), **8080** (páginas), **8501** (dashboard) y **5433** (Postgres).
 
-> **Si ya tienen un n8n corriendo en el puerto 5678**, deténganlo antes (`docker stop <nombre>`)
-> o cambien `N8N_PORT=5679` en el archivo `.env`. Este proyecto trae su propio n8n con los
-> flujos ya importados.
+> Este proyecto trae **su propio n8n** con los flujos ya importados, en el puerto **5679** para no chocar
+> con otro n8n que ya tengan en el 5678. Si algún puerto está ocupado, cámbienlo en el archivo `.env`.
+>
+> Si una instalación falló por un puerto ocupado, después de cambiarlo recreen los contenedores con
+> `docker compose up -d --force-recreate` (si no, n8n puede quedar sin red y no encontrar la base de datos).
 
 ## 2. Instalación (5 minutos)
 
@@ -54,7 +56,7 @@ Cuando termine:
 | Cocina y barra | http://localhost:8080/cocina.html |
 | Pantalla de turnos (TV: número + nombre) | http://localhost:8080/turnos.html |
 | **Dashboard de KPI (Python)** | http://localhost:8501 |
-| n8n (ver y editar los flujos) | http://localhost:5678 |
+| n8n (ver y editar los flujos) | http://localhost:5679 |
 
 En n8n, la primera vez se pide crear un usuario dueño (correo y contraseña locales, no se
 envían a ningún lado). Los flujos ya aparecen importados y activos.
