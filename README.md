@@ -29,6 +29,12 @@ Todo es gratuito y corre en Docker con un solo comando.
 
 ## 2. Instalación (5 minutos)
 
+**La forma más fácil:** con Docker Desktop abierto, hagan doble clic en **`instalar.bat`** (Windows) o
+ejecuten `./instalar.sh` (Mac/Linux). El instalador levanta todo, espera a que n8n active los flujos,
+carga los datos de demostración y abre las páginas en el navegador.
+
+Si prefieren hacerlo a mano:
+
 ```bash
 cd cafeteria-ean
 cp .env.example .env          # en Windows PowerShell: copy .env.example .env

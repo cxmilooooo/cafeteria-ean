@@ -1,2 +1,4 @@
 *.sh text eol=lf
 *.sql text eol=lf
+# El instalador de Windows se guarda tal cual, con fin de línea CRLF
+*.bat -text
