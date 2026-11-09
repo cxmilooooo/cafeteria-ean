@@ -33,7 +33,7 @@ def catalogos() -> dict:
     }
 
 
-@st.cache_data(ttl=30)
+@st.cache_data(ttl=10)
 def pedidos(desde: date, hasta: date, cafeterias: tuple, franjas: tuple) -> pd.DataFrame:
     df = consulta(
         """SELECT * FROM v_pedidos
@@ -45,7 +45,7 @@ def pedidos(desde: date, hasta: date, cafeterias: tuple, franjas: tuple) -> pd.D
     return df
 
 
-@st.cache_data(ttl=30)
+@st.cache_data(ttl=10)
 def detalle(desde: date, hasta: date, cafeterias: tuple, franjas: tuple) -> pd.DataFrame:
     return consulta(
         """SELECT p.fecha, p.id_cafeteria, f.nombre AS franja, f.es_hora_pico, pr.nombre AS producto,
@@ -80,7 +80,7 @@ def alertas_hoy(cafeterias: tuple) -> pd.DataFrame:
             ORDER BY a.fecha_hora DESC LIMIT 30""", c=list(cafeterias))
 
 
-@st.cache_data(ttl=30)
+@st.cache_data(ttl=10)
 def reclamos(desde: date, hasta: date, cafeterias: tuple) -> pd.DataFrame:
     return consulta(
         """SELECT r.fecha_hora, c.nombre AS cafeteria, r.id_pedido, r.tipo_reclamo, r.descripcion, r.estado

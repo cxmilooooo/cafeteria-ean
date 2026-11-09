@@ -1,18 +1,17 @@
-"""Hoy: cómo va el servicio en este momento. Se actualiza sola cada 30 segundos."""
+"""Hoy: cómo va el servicio en este momento. Se actualiza sola cada 15 segundos (ver app.py)."""
 from datetime import datetime
 
 import streamlit as st
 
 from plantilla import componentes as ui, datos
 
-ui.encabezado("Hoy", "Cómo va el servicio en este momento. La página se actualiza sola cada 30 segundos.")
+ui.encabezado("Hoy", "Cómo va el servicio en este momento. La página se actualiza sola cada 15 segundos.")
 f = ui.filtros(periodo=False, pico=False)
 
 EN_CURSO = ["Registrado", "Pagado", "En preparación", "Listo"]
 EN_COCINA = ["Pagado", "En preparación"]
 
 
-@st.fragment(run_every=30)
 def tablero():
     hoy = datos.pedidos_hoy(f["cafeterias"])
     ahora = datetime.now()

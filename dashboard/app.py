@@ -7,6 +7,7 @@ paginas/_plantilla_pagina.py y registrarlo en la lista PAGINAS de abajo
 """
 import hmac
 import os
+import time
 
 import streamlit as st
 
@@ -37,4 +38,20 @@ PAGINAS = [
     st.Page("paginas/administracion.py", url_path="administracion", title="Administración", icon="⚙️"),
 ]
 
-st.navigation(PAGINAS, position="top").run()
+pagina = st.navigation(PAGINAS, position="top")
+
+# Actualización automática: Hoy e Indicadores se recargan solos cada 15 segundos.
+# Administración no, para no interrumpir a quien está escribiendo en un formulario.
+if pagina.title != "Administración":
+    st.session_state["_ultima_carga"] = time.time()
+
+    @st.fragment(run_every=15)
+    def _autorefresco():
+        # El temporizador vuelve a ejecutar este bloque; si ya pasaron 15 s desde la última carga,
+        # se recarga toda la página con datos frescos.
+        if time.time() - st.session_state.get("_ultima_carga", 0) >= 14:
+            st.cache_data.clear()
+            st.rerun(scope="app")
+    _autorefresco()
+
+pagina.run()
