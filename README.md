@@ -32,8 +32,9 @@ Todo es gratuito y corre en Docker con un solo comando.
 ## 2. Instalación (5 minutos)
 
 **La forma más fácil:** con Docker Desktop abierto, hagan doble clic en **`instalar.bat`** (Windows) o
-ejecuten `./instalar.sh` (Mac/Linux). El instalador levanta todo, espera a que n8n active los flujos,
-carga los datos de demostración y abre las páginas en el navegador.
+ejecuten `./instalar.sh` (Mac/Linux). El instalador levanta todo, configura la IP para el QR, espera a
+que n8n active los flujos y abre las páginas en el navegador. **El sistema queda vacío, listo para usar**
+(solo con el menú y el personal).
 
 Si prefieren hacerlo a mano:
 
@@ -79,16 +80,25 @@ Caja y cocina piden **empleado + PIN** (RNF-05). El dashboard pide la contraseñ
 Los PIN se guardan cifrados (bcrypt). Tras 5 intentos fallidos el usuario queda bloqueado 5 minutos.
 Para cambiarlos: `docker compose exec postgres psql -U cafeteria -c "UPDATE empleado SET pin_hash = crypt('NUEVO', gen_salt('bf')) WHERE nombre = 'Laura Gómez'"`.
 
-### Cargar datos de demostración (recomendado para la sustentación)
+### Empezar desde cero (borrar datos de prueba)
+
+Si hicieron pruebas y quieren dejarlo limpio para el uso real:
+
+```bash
+./limpiar_datos.sh          # Windows: limpiar_datos.bat
+```
+
+Borra pedidos, clientes, pagos, facturas, reclamos, alertas, KPI y turnos. **Conserva el menú, las
+cafeterías y el personal.** El siguiente pedido vuelve a ser el turno 1.
+
+### Datos de demostración (opcional, solo para mostrar el dashboard)
 
 ```bash
 docker compose exec dashboard python generar_datos_demo.py --dias 15
 ```
 
-Genera 15 días hábiles **simulados** de un piloto: al inicio casi todo se pide en caja y el
-tiempo de atención se parece a la línea base medida (≈ 7 min); con los días crece el uso del
-QR y los tiempos bajan hasta la meta. Para quitarlos:
-`docker compose exec dashboard python generar_datos_demo.py --borrar`.
+Genera 15 días hábiles **simulados**. No los usen junto con datos reales; se quitan con
+`./limpiar_datos.sh`.
 
 ### Probar con celulares de verdad
 
