@@ -5,24 +5,52 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Cafetería EAN · Sistema de pedidos</title>
 <link rel="stylesheet" href="estilos.css">
+<style>
+  main { max-width: 1000px; }
+  .pregunta { font-size: 1.3rem; font-weight: 700; margin: 8px 0 16px; text-align: center; }
+  .sedes { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
+  .sedes button[aria-pressed="true"] { background: var(--acento-suave); border-color: var(--acento); color: var(--acento); font-weight: 700; }
+  .pie-portal { text-align: center; margin-top: 28px; font-size: .9rem; }
+  .pie-portal a { color: var(--texto-suave); }
+</style>
 </head>
 <body>
-<header class="barra"><h1>Cafetería EAN<small>Sistema de gestión de pedidos · n8n + Postgres + Python</small></h1></header>
-<main class="portal">
-  <div class="rejilla tres-col">
-    <a class="tarjeta" href="pedido.html?cafeteria=1"><h2>📱 Pedir por QR</h2><p class="suave">Lo que ve el cliente al escanear el código (RF-01).</p></a>
-    <a class="tarjeta" href="caja.html?cafeteria=1"><h2>🧾 Caja</h2><p class="suave">Registrar pedidos, <strong>autorizarlos</strong> al cobrar y atender reclamos (RF-02, 04, 12).</p></a>
-    <a class="tarjeta" href="cocina.html?cafeteria=1"><h2>👩‍🍳 Cocina y barra</h2><p class="suave">Cola en orden de pago y cambio de estados (RF-06, 07, 09).</p></a>
-    <a class="tarjeta" href="turnos.html?cafeteria=1"><h2>📺 Pantalla de turnos</h2><p class="suave">Número y nombre de quien pidió cuando el pedido está listo (RF-08).</p></a>
-    <a class="tarjeta" id="lnk-dash" href="#"><h2>📊 Dashboard de KPI</h2><p class="suave">Los 5 KPI con metas, filtros y analítica (RF-13).</p></a>
-    <a class="tarjeta" id="lnk-n8n" href="#"><h2>⚙️ n8n</h2><p class="suave">Ver y editar los flujos de automatización.</p></a>
+<header class="barra"><h1>Cafetería EAN<small>Sistema de pedidos</small></h1></header>
+<main>
+  <p class="pregunta">¿Qué vas a hacer?</p>
+  <div class="sedes" id="sedes"></div>
+  <div class="roles">
+    <a class="rol" data-pagina="pedido.html"><span class="icono" aria-hidden="true">📱</span><strong>Pedir (cliente)</strong><span class="suave">Elige tus productos y recibe tu turno.</span></a>
+    <a class="rol" data-pagina="caja.html"><span class="icono" aria-hidden="true">🧾</span><strong>Caja</strong><span class="suave">Cobrar pedidos y enviarlos a cocina.</span></a>
+    <a class="rol" data-pagina="cocina.html"><span class="icono" aria-hidden="true">👩‍🍳</span><strong>Cocina</strong><span class="suave">Preparar, marcar listo y entregar.</span></a>
+    <a class="rol" data-pagina="turnos.html"><span class="icono" aria-hidden="true">📺</span><strong>Pantalla de turnos</strong><span class="suave">Muestra quién puede recoger su pedido.</span></a>
   </div>
-  <p class="suave" style="margin-top:20px">Cafetería 2: agreguen <code>?cafeteria=2</code> a cualquier página.</p>
+  <p class="pie-portal">Coordinador: <a id="lnk-dash" href="#">dashboard</a> · <a id="lnk-n8n" href="#">flujos (n8n)</a></p>
 </main>
+<script src="comun.js"></script>
 <script>
   const h = location.hostname;
-  document.getElementById('lnk-dash').href = `http://${h}:8501`;
-  document.getElementById('lnk-n8n').href = `http://${h}:5679`;
+  $('#lnk-dash').href = `http://${h}:8501`;
+  $('#lnk-n8n').href = `http://${h}:5679`;
+  let sede = parametro('cafeteria', null);
+  try { sede ??= localStorage.getItem('cafeteria_sede'); } catch (e) {}
+  sede ??= '1';
+  function enlazar() {
+    document.querySelectorAll('a.rol').forEach(a => a.href = `${a.dataset.pagina}?cafeteria=${encodeURIComponent(sede)}`);
+    document.querySelectorAll('#sedes button').forEach(b => b.setAttribute('aria-pressed', b.dataset.sede === sede));
+  }
+  enlazar();
+  // Si hay varias cafeterías, se elige una vez y queda recordada en este equipo
+  cargarCatalogo(sede).then(c => {
+    if (c.cafeterias.length < 2) return;
+    $('#sedes').innerHTML = c.cafeterias.map(x => `<button data-sede="${esc(x.id_cafeteria)}">${esc(x.nombre)}</button>`).join('');
+    $('#sedes').onclick = e => {
+      const b = e.target.closest('button'); if (!b) return;
+      sede = b.dataset.sede; try { localStorage.setItem('cafeteria_sede', sede); } catch (e) {}
+      enlazar();
+    };
+    enlazar();
+  }).catch(() => {});
 </script>
 </body>
 </html>

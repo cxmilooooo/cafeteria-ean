@@ -12,7 +12,7 @@
         -260
       ],
       "parameters": {
-        "content": "## 04 · Consultas en vivo\n- `GET /cola?id_cafeteria=1` → cola de cocina en orden de pago (RN-02)\n- `GET /pendientes?id_cafeteria=1` → pedidos que esperan autorización del cajero\n- `GET /seguimiento?id_pedido=P00001` → estado para el celular del cliente\n- `GET /turnos?id_cafeteria=1` → pantalla de turnos: número de turno, pedido y **nombre** de quien pidió",
+        "content": "## 04 · Consultas en vivo\n- `GET /cola?id_cafeteria=1` → cola de cocina en orden de pago (RN-02)\n- `GET /pendientes?id_cafeteria=1` → pedidos que esperan autorización del cajero\n- `GET /seguimiento?id_pedido=P00001` → estado para el celular del cliente\n- `GET /turnos?id_cafeteria=1` → pantalla de turnos: número de turno, pedido y **nombre** de quien pidió\n- `GET /pedidos-hoy?id_cafeteria=1` → pedidos del día para elegir uno al registrar un reclamo",
         "width": 380,
         "height": 300,
         "color": 7
@@ -253,6 +253,65 @@
           "responseCode": 200
         }
       }
+    },
+    {
+      "id": "3a52be19-0816-546f-b7eb-921d35ae7cee",
+      "name": "GET /pedidos-hoy",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        720
+      ],
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "pedidos-hoy",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "webhookId": "ccc97581-7b97-523d-9d22-c44dbe55362e"
+    },
+    {
+      "id": "b5227fcb-d156-5ede-aacd-fabf081cb6b7",
+      "name": "Consultar pedidos-hoy",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        240,
+        720
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT api_pedidos_hoy($1::jsonb) AS r",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify($json.query) }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "CafPostgres00001",
+          "name": "Postgres Cafetería"
+        }
+      }
+    },
+    {
+      "id": "f95036fd-3aef-59d9-9fb2-89b3c65e1a8b",
+      "name": "Responder pedidos-hoy",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        480,
+        720
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.r }}",
+        "options": {
+          "responseCode": 200
+        }
+      }
     }
   ],
   "connections": {
@@ -338,6 +397,28 @@
         [
           {
             "node": "Responder turnos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GET /pedidos-hoy": {
+      "main": [
+        [
+          {
+            "node": "Consultar pedidos-hoy",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar pedidos-hoy": {
+      "main": [
+        [
+          {
+            "node": "Responder pedidos-hoy",
             "type": "main",
             "index": 0
           }

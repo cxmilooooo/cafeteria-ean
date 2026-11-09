@@ -209,9 +209,11 @@ w = WF("CafeEAN04Consult", "04 · Consultas en vivo: cola, caja, seguimiento y t
        "## 04 · Consultas en vivo\n- `GET /cola?id_cafeteria=1` → cola de cocina en orden de pago (RN-02)\n"
        "- `GET /pendientes?id_cafeteria=1` → pedidos que esperan autorización del cajero\n"
        "- `GET /seguimiento?id_pedido=P00001` → estado para el celular del cliente\n"
-       "- `GET /turnos?id_cafeteria=1` → pantalla de turnos: número de turno, pedido y **nombre** de quien pidió", )
+       "- `GET /turnos?id_cafeteria=1` → pantalla de turnos: número de turno, pedido y **nombre** de quien pidió\n"
+       "- `GET /pedidos-hoy?id_cafeteria=1` → pedidos del día para elegir uno al registrar un reclamo", )
 for k, (path, fn) in enumerate([("cola", "api_cola"), ("pendientes", "api_pendientes_pago"),
-                                ("seguimiento", "api_seguimiento"), ("turnos", "api_turnos")]):
+                                ("seguimiento", "api_seguimiento"), ("turnos", "api_turnos"),
+                                ("pedidos-hoy", "api_pedidos_hoy")]):
     y = k * 180
     h = w.webhook(f"GET /{path}", "GET", path, [0, y])
     p = w.pg(f"Consultar {path}", f"SELECT {fn}($1::jsonb) AS r", [240, y], "={{ JSON.stringify($json.query) }}")

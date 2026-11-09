@@ -355,6 +355,18 @@ LANGUAGE sql STABLE AS $$
        AND pe.fecha = ahora_local()::date AND pe.estado = 'Registrado'
 $$;
 
+-- Pedidos de hoy (para elegir el pedido de un reclamo por turno y nombre, sin teclear códigos)
+CREATE OR REPLACE FUNCTION api_pedidos_hoy(p jsonb) RETURNS jsonb
+LANGUAGE sql STABLE AS $$
+    SELECT jsonb_build_object('ok', true, 'pedidos', coalesce(jsonb_agg(jsonb_build_object(
+              'id_pedido', pe.id_pedido, 'numero_turno', pe.numero_turno, 'estado', pe.estado,
+              'cliente', coalesce(cl.nombre, 'Cliente'), 'valor_total', pe.valor_total)
+              ORDER BY pe.numero_turno DESC), '[]'))
+      FROM pedido pe LEFT JOIN cliente cl ON cl.id_cliente = pe.id_cliente
+     WHERE pe.id_cafeteria = (p->>'id_cafeteria')::int
+       AND pe.fecha = ahora_local()::date AND pe.numero_turno IS NOT NULL AND pe.estado <> 'Abandonado'
+$$;
+
 -- Seguimiento del cliente desde su celular (RF-08)
 CREATE OR REPLACE FUNCTION api_seguimiento(p jsonb) RETURNS jsonb
 LANGUAGE plpgsql STABLE AS $$

@@ -5,83 +5,188 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Cocina y barra · Cafetería EAN</title>
 <link rel="stylesheet" href="estilos.css">
+<style>
+  header.barra { padding: 8px 16px; }
+  main { max-width: 1400px; padding: 12px 16px; }
+  .tablero { display: grid; gap: 14px; grid-template-columns: 2fr 1fr; align-items: start; }
+  @media (max-width: 820px) { .tablero { grid-template-columns: 1fr; } }
+  .columna h2 { font-size: 1.15rem; display: flex; align-items: center; gap: 8px; }
+  .cuenta { background: var(--fondo); border: 1px solid var(--borde); border-radius: 99px; padding: 0 10px; font-size: .95rem; }
+  .comandas { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
+  .listos .comandas { grid-template-columns: 1fr; }
+
+  .comanda { margin: 0; display: flex; flex-direction: column; gap: 6px; border-width: 2px; border-left-width: 6px; }
+  .comanda .cab { display: flex; align-items: center; gap: 8px; }
+  .comanda .num { font-size: 2.2rem; line-height: 1; }
+  .comanda .quien { font-weight: 700; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .comanda ul { margin: 0; padding-left: 0; list-style: none; font-size: 1.05rem; flex: 1; }
+  .comanda li { padding: 2px 0; }
+  .comanda li b { font-variant-numeric: tabular-nums; }
+  .comanda .nota { font-weight: 600; }
+  .comanda.pagado { cursor: pointer; }
+  .comanda.preparando { border-left-color: var(--alerta); }
+  .comanda.antigua { border-color: var(--peligro); background: var(--alerta-suave); }
+  .comanda .pista { font-size: .8rem; color: var(--texto-suave); }
+  .comanda button.listo { width: 100%; font-size: 1.3rem; min-height: 60px; }
+  .listos .comanda { border-left-color: var(--listo); flex-direction: row; align-items: center; gap: 12px; }
+  .listos .comanda .num { font-size: 2.6rem; color: var(--listo); min-width: 1.6em; text-align: center; }
+  .listos .comanda .info { flex: 1; min-width: 0; }
+  .listos .comanda .quien { display: block; font-size: 1.15rem; }
+  .listos .comanda button { min-height: 56px; font-size: 1.1rem; padding: 10px 16px; }
+  .vacio { color: var(--texto-suave); padding: 24px 8px; text-align: center; grid-column: 1 / -1; margin: 0; }
+  .dialogo .medios button[data-si] { justify-content: center; }
+  .dialogo .turno-confirmar { font-size: 4rem; font-weight: 800; color: var(--acento); line-height: 1.1; text-align: center; }
+</style>
 </head>
 <body>
 <header class="barra">
-  <h1>Cocina y barra<small>Solo pedidos autorizados en caja, en orden de autorización (RN-01, RN-02)</small></h1>
-  <select id="sel-caf" style="width:auto"></select>
+  <h1>👩‍🍳 Cocina y barra</h1>
+  <select id="sel-caf" style="width:auto" aria-label="Cafetería"></select>
   <span class="usuario" id="usuario"></span>
 </header>
 <main>
   <div id="msg" class="mensaje oculto"></div>
-  <div class="rejilla tres-col">
-    <div class="tarjeta columna"><h2>Autorizados · por preparar <span class="contador" id="n-pagado"></span></h2><div id="col-pagado"></div></div>
-    <div class="tarjeta columna"><h2>En preparación <span class="contador" id="n-prep"></span></h2><div id="col-prep"></div></div>
-    <div class="tarjeta columna"><h2>Listo para entregar <span class="contador" id="n-listo"></span></h2><div id="col-listo"></div></div>
+  <div class="tablero">
+    <section class="tarjeta columna">
+      <h2>Por preparar <span class="cuenta" id="n-prep">0</span></h2>
+      <div class="comandas" id="col-prep"></div>
+    </section>
+    <section class="tarjeta columna listos">
+      <h2>Listos para entregar <span class="cuenta" id="n-listo">0</span></h2>
+      <div class="comandas" id="col-listo"></div>
+    </section>
   </div>
 </main>
 
 <script src="comun.js"></script>
 <script>
 let idCaf = parametro('cafeteria', '1');
-let vistos = new Set();
-let sesion = null;
+let vistos = null, sesion = null, pedidos = [];
+const ocupados = new Set();          // pedidos con una llamada en curso
+const MIN_ANTIGUA = 8;
+let ultimoHtml = '';
+
+const cambiarEstado = async (id, estado, extra = {}) =>
+  revisarSesion(await api('estado', { id_pedido: id, estado, id_empleado: sesion.id_empleado, pin: sesion.pin, ...extra }), 'cocina', idCaf);
 
 function comanda(p) {
-  const t = p.minutos_desde_pago;
-  const items = p.items.map(i => `<li>${i.cantidad} × ${esc(i.producto)}${i.observaciones ? `<div class="nota">${esc(i.observaciones)}</div>` : ''}</li>`).join('');
-  let acciones = '';
-  if (p.estado === 'Pagado') acciones = `<button class="primario" data-id="${esc(p.id_pedido)}" data-estado="En preparación">Empezar</button>`;
-  if (p.estado === 'En preparación') acciones = `<button class="primario" data-id="${esc(p.id_pedido)}" data-estado="Listo">Marcar listo</button>`;
-  if (p.estado === 'Listo') acciones = `
-    <label>Turno que muestra el cliente (RF-09)</label>
-    <input inputmode="numeric" id="t-${esc(p.id_pedido)}" placeholder="${p.numero_turno}">
-    <label class="check"><input type="checkbox" id="c-${esc(p.id_pedido)}" checked> Completo y a la persona correcta</label>
-    <button class="primario" data-id="${esc(p.id_pedido)}" data-estado="Entregado" style="margin-top:6px">Entregar</button>`;
-  return `<div class="comanda">
-    <div class="cab"><span class="num">#${p.numero_turno}</span>
-      <span class="tiempo ${t > 8 ? 'alto' : t > 5 ? 'medio' : ''}">${t} min</span></div>
-    <div><strong>${esc(p.cliente)}</strong> <span class="suave">· ${esc(p.canal)} · ${esc(p.id_pedido)}</span></div>
-    <ul>${items}</ul>${acciones}</div>`;
+  const t = Math.floor(Number(p.minutos_desde_pago) || 0);
+  const items = (p.items || []).map(i => `<li><b>${esc(i.cantidad)}×</b> ${esc(i.producto)}${i.observaciones ? `<div class="nota">⚠ ${esc(i.observaciones)}</div>` : ''}</li>`).join('');
+  const id = esc(p.id_pedido), ocupado = ocupados.has(p.id_pedido) ? 'disabled' : '';
+  const tiempo = `<span class="tiempo ${t > MIN_ANTIGUA ? 'alto' : t > 5 ? 'medio' : ''}">${t < 1 ? 'recién' : `${t} min`}</span>`;
+  if (p.estado === 'Listo') {
+    return `<div class="comanda" data-pedido="${id}">
+      <span class="num">#${esc(p.numero_turno)}</span>
+      <div class="info"><span class="quien">${esc(p.cliente)}</span><span class="suave">${(p.items || []).length} producto(s) · ${esc(p.id_pedido)}</span></div>
+      <button class="primario" data-entregar="${id}" ${ocupado}>Entregar</button></div>`;
+  }
+  const preparando = p.estado === 'En preparación';
+  return `<div class="comanda ${preparando ? 'preparando' : 'pagado'} ${t > MIN_ANTIGUA ? 'antigua' : ''}" data-pedido="${id}"
+      ${preparando ? '' : 'title="Toca la comanda para marcarla en preparación (opcional)"'}>
+    <div class="cab"><span class="num">#${esc(p.numero_turno)}</span><span class="quien">${esc(p.cliente)}</span>${tiempo}</div>
+    <div class="pista">${preparando ? '🔥 En preparación' : 'Nuevo · toca para empezar'}</div>
+    <ul>${items}</ul>
+    <button class="primario listo" data-listo="${id}" ${ocupado}>${ocupado ? 'Guardando…' : '✓ Listo'}</button></div>`;
+}
+
+function pintar() {
+  if (hayDialogoAbierto()) return;
+  const prep = pedidos.filter(p => p.estado === 'Pagado' || p.estado === 'En preparación');
+  const listos = pedidos.filter(p => p.estado === 'Listo');
+  const html = prep.map(comanda).join('') + '|' + listos.map(comanda).join('');
+  if (html === ultimoHtml) return;
+  ultimoHtml = html;
+  $('#n-prep').textContent = prep.length;
+  $('#n-listo').textContent = listos.length;
+  $('#col-prep').innerHTML = prep.map(comanda).join('') || '<p class="vacio">No hay pedidos por preparar 👌</p>';
+  $('#col-listo').innerHTML = listos.map(comanda).join('') || '<p class="vacio">Nada para entregar</p>';
 }
 
 async function cargar() {
   const r = await api(`cola?id_cafeteria=${idCaf}`);
   if (!r.ok) return mostrarMensaje($('#msg'), r.mensaje);
-  const por = e => r.pedidos.filter(p => p.estado === e);
-  const cols = [['Pagado', 'pagado'], ['En preparación', 'prep'], ['Listo', 'listo']];
-  // No repintar mientras alguien escribe el turno de entrega
-  if (document.activeElement?.tagName === 'INPUT') return;
-  cols.forEach(([e, k]) => {
-    const ps = por(e);
-    $(`#n-${k}`).textContent = `(${ps.length})`;
-    $(`#col-${k}`).innerHTML = ps.map(comanda).join('') || '<p class="suave">—</p>';
-  });
-  const nuevos = por('Pagado').filter(p => !vistos.has(p.id_pedido));
-  if (vistos.size && nuevos.length) campana();
-  r.pedidos.forEach(p => vistos.add(p.id_pedido));
+  $('#msg').classList.add('oculto');
+  pedidos = r.pedidos;
+  const nuevos = pedidos.filter(p => p.estado === 'Pagado').map(p => p.id_pedido);
+  if (vistos && nuevos.some(id => !vistos.has(id))) campana();
+  vistos ??= new Set();
+  pedidos.forEach(p => vistos.add(p.id_pedido));
+  pintar();
 }
 
-document.body.addEventListener('click', async e => {
-  const id = e.target.dataset.id, estado = e.target.dataset.estado;
-  if (!id) return;
-  if (!sesion) return;
-  const datos = { id_pedido: id, estado, id_empleado: sesion.id_empleado, pin: sesion.pin };
-  if (estado === 'Entregado') {
-    datos.numero_turno = Number($(`#t-${id}`).value);
-    datos.entregado_correcto = $(`#c-${id}`).checked;
+async function trabajar(id, fn) {
+  if (!sesion || ocupados.has(id)) return;
+  ocupados.add(id); ultimoHtml = ''; pintar();
+  try { await fn(); } finally { ocupados.delete(id); ultimoHtml = ''; await cargar(); }
+}
+
+// «✓ Listo»: hace las transiciones necesarias (Pagado → En preparación → Listo)
+async function marcarListo(id) {
+  await trabajar(id, async () => {
+    const p = pedidos.find(x => x.id_pedido === id);
+    if (p?.estado === 'Pagado') {
+      const r = await cambiarEstado(id, 'En preparación');
+      if (!r.ok) return mostrarMensaje($('#msg'), r.mensaje);
+    }
+    const r = await cambiarEstado(id, 'Listo');
+    if (!r.ok) return mostrarMensaje($('#msg'), r.mensaje);
+    aviso(`Turno ${p?.numero_turno ?? ''} listo · ${p?.cliente ?? ''}`, 'ok', 2500);
+  });
+}
+
+function entregar(id) {
+  const p = pedidos.find(x => x.id_pedido === id);
+  if (!p || !sesion) return;
+  const d = abrirDialogo(`
+    <h2 style="text-align:center">¿El cliente mostró el turno?</h2>
+    <div class="turno-confirmar">#${esc(p.numero_turno)}</div>
+    <p style="text-align:center;margin:0 0 6px"><strong>${esc(p.cliente)}</strong></p>
+    <ul>${(p.items || []).map(i => `<li>${esc(i.cantidad)} × ${esc(i.producto)}</li>`).join('')}</ul>
+    <div class="mensaje error oculto" id="msg-ent"></div>
+    <div class="medios"><button class="primario" data-si>✓ Sí, entregar</button></div>
+    <div class="pie-dialogo"><button class="enlace" data-problema>Hubo un problema</button><button data-cerrar>Cancelar</button></div>`);
+  d.querySelector('[data-cerrar]').onclick = () => d.close();
+  const enviar = async correcto => {
+    d.querySelectorAll('button').forEach(b => b.disabled = true);
+    d.dataset.ocupado = '1';
+    const r = await cambiarEstado(id, 'Entregado', { numero_turno: Number(p.numero_turno), entregado_correcto: correcto });
+    delete d.dataset.ocupado;
+    if (!r.ok) { d.querySelectorAll('button').forEach(b => b.disabled = false); return mostrarMensaje(d.querySelector('#msg-ent'), r.mensaje); }
+    d.close();
+    aviso(correcto ? `Turno ${p.numero_turno} entregado` : `Turno ${p.numero_turno} entregado con novedad. Si el cliente reclama, regístralo en Caja.`,
+          correcto ? 'ok' : 'error', correcto ? 2500 : 6000);
+    ultimoHtml = ''; cargar();
+  };
+  d.querySelector('[data-si]').onclick = () => enviar(true);
+  d.querySelector('[data-problema]').onclick = () => {
+    if (!d.querySelector('[data-confirma-problema]')) {
+      d.querySelector('#msg-ent').insertAdjacentHTML('beforebegin', `<div class="mensaje error">Se registrará la entrega como <strong>incorrecta</strong>
+        (incompleta, equivocada o a otra persona). <button class="peligro" data-confirma-problema style="margin-top:8px;width:100%">Registrar entrega con problema</button></div>`);
+      d.querySelector('[data-confirma-problema]').onclick = () => enviar(false);
+    }
+  };
+}
+
+document.body.addEventListener('click', e => {
+  const listo = e.target.closest('[data-listo]'), ent = e.target.closest('[data-entregar]');
+  if (listo) return marcarListo(listo.dataset.listo);
+  if (ent) return entregar(ent.dataset.entregar);
+  // Tocar una comanda nueva la marca «En preparación» (opcional)
+  const c = e.target.closest('.comanda.pagado');
+  if (c) {
+    const id = c.dataset.pedido;
+    trabajar(id, async () => {
+      const r = await cambiarEstado(id, 'En preparación');
+      if (!r.ok) mostrarMensaje($('#msg'), r.mensaje);
+    });
   }
-  e.target.disabled = true;
-  const r = revisarSesion(await api('estado', datos), 'cocina', idCaf);
-  if (!r.ok) { mostrarMensaje($('#msg'), r.mensaje); e.target.disabled = false; return; }
-  document.activeElement?.blur();
-  cargar();
 });
 
 async function iniciar() {
   const cat = await cargarCatalogo(idCaf);
   llenarSelect($('#sel-caf'), cat.cafeterias.map(c => ({ value: c.id_cafeteria, label: c.nombre })), idCaf);
-  vistos = new Set(); cargar();
+  if (cat.cafeterias.length < 2) $('#sel-caf').classList.add('oculto');
+  cargar();
   sesion = await pedirIngreso('cocina', idCaf, cat.empleados);
   $('#usuario').innerHTML = `${esc(sesion.nombre)} <button id="btn-salir">Salir</button>`;
   $('#btn-salir').onclick = () => cerrarSesion('cocina', idCaf);

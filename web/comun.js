@@ -118,3 +118,32 @@ function pedirIngreso(pantalla, idCaf, empleados) {
     };
   });
 }
+
+// ---------------------------------------------------------------------
+// Diálogos y avisos para pantallas táctiles
+// ---------------------------------------------------------------------
+// Abre un <dialog> modal con el HTML dado; se elimina del DOM al cerrarse.
+// Tocar fuera del recuadro lo cierra (salvo que esté ocupado).
+function abrirDialogo(html, clase = '') {
+  const d = document.createElement('dialog');
+  d.className = `dialogo ${clase}`;
+  d.innerHTML = `<div class="dialogo-cuerpo">${html}</div>`;
+  document.body.appendChild(d);
+  d.addEventListener('close', () => d.remove());
+  d.addEventListener('click', e => { if (e.target === d && !d.dataset.ocupado) d.close(); });
+  d.addEventListener('cancel', e => { if (d.dataset.ocupado) e.preventDefault(); });
+  d.showModal();
+  return d;
+}
+const hayDialogoAbierto = () => !!document.querySelector('dialog[open], .capa-ingreso');
+
+// Franja grande y visible unos segundos (confirmaciones en hora pico)
+function aviso(texto, tipo = 'ok', ms = 5000) {
+  let el = document.getElementById('aviso-flotante');
+  if (!el) { el = document.createElement('div'); el.id = 'aviso-flotante'; el.setAttribute('role', 'status'); document.body.appendChild(el); }
+  el.className = `aviso-flotante ${tipo}`;
+  el.textContent = texto;
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.add('oculto'), ms);
+  el.onclick = () => el.classList.add('oculto');
+}
