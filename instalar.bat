@@ -26,6 +26,9 @@ if not exist ".env" (
   echo  [OK] Archivo .env creado.
 )
 
+rem Direccion de la red para el codigo QR
+call configurar_red.bat
+
 echo  [..] Levantando el sistema (la primera vez tarda varios minutos)...
 docker compose up -d --build --force-recreate
 if errorlevel 1 (

@@ -7,6 +7,9 @@ docker info >/dev/null 2>&1 || { echo "[X] Docker no está encendido. Ábrelo y 
 
 [ -f .env ] || { cp .env.example .env && echo "[OK] Archivo .env creado."; }
 
+# Dirección de la red para el código QR (los celulares abren el pedido con ella)
+./configurar_red.sh || echo "[!] Se sigue con localhost: el QR solo funcionará en este computador."
+
 echo "[..] Levantando el sistema (la primera vez tarda varios minutos)..."
 docker compose up -d --build --force-recreate || {
   echo "[X] No se pudo levantar. Si dice 'port is already allocated', libera el puerto o cámbialo en .env."
@@ -34,6 +37,7 @@ cat <<'FIN'
 
 LISTO
   Portal (cliente, caja, cocina, turnos): http://localhost:8080
+  Desde los celulares (misma red Wi-Fi):   ver URL_PUBLICA en .env · QR en Dashboard → Menú y código QR
   Dashboard de KPI:                        http://localhost:8501   (clave: coordinador2026)
   n8n (editar los flujos):                 http://localhost:5679
   PIN caja: Laura 1111 | PIN cocina: Andrés 2222

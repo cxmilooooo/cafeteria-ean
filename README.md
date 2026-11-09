@@ -92,10 +92,17 @@ QR y los tiempos bajan hasta la meta. Para quitarlos:
 
 ### Probar con celulares de verdad
 
-1. Busquen la IP del PC en la red Wi-Fi (`ipconfig` en Windows, `ip a` en Linux).
-2. En `.env` pongan `URL_PUBLICA=http://<esa IP>:8080` y ejecuten `docker compose up -d`.
-3. En el dashboard → **Menú y código QR** descarguen e impriman el QR de cada cafetería.
-4. Los celulares deben estar en la misma red Wi-Fi (si no abre, revisen el firewall del PC).
+El instalador detecta solo la IP del computador en el Wi-Fi y la pone en `URL_PUBLICA` (`.env`).
+Si cambian de red (la IP cambia), ejecuten:
+
+```bash
+./configurar_red.sh        # Windows: configurar_red.bat
+```
+
+Después, en el dashboard → **Menú y código QR**, descarguen e impriman el QR de cada cafetería.
+Los celulares deben estar en la **misma red Wi-Fi** que el computador. Si no abre: algunas redes
+(como las de la universidad) bloquean la conexión entre dispositivos; en ese caso usen el punto de
+acceso (hotspot) de un celular y conecten ahí el computador y los demás celulares.
 
 ## 3. Los 13 flujos de n8n
 
