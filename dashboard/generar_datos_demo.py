@@ -19,7 +19,7 @@ import psycopg
 URL = os.environ.get("DATABASE_URL", "postgresql+psycopg://cafeteria:cafeteria2026@localhost:5433/cafeteria")
 URL = URL.replace("postgresql+psycopg://", "postgresql://")
 
-# Llegadas por hora (cafetería principal). La Torre 2 recibe el 85 %.
+# Llegadas por hora (cafetería principal). Si hay más cafeterías, las demás reciben el 85 %.
 LLEGADAS = {7: 22, 8: 28, 9: 26, 10: 72, 11: 30, 12: 82, 13: 78, 14: 24, 15: 18, 16: 16, 17: 14, 18: 8, 19: 5}
 NOMBRES = ["Valentina", "Santiago", "Mariana", "Sebastián", "Isabella", "Mateo", "Sara", "Nicolás", "Gabriela",
            "Samuel", "Daniela", "Alejandro", "Laura", "David", "Camila", "Tomás", "Juliana", "Felipe", "Natalia", "Andrés"]

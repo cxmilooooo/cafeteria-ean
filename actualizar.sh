@@ -14,6 +14,10 @@ until docker compose exec -T postgres pg_isready -U cafeteria -d cafeteria >/dev
 
 echo "[..] Actualizando funciones de la base de datos (los datos se conservan)..."
 docker compose exec -T postgres psql -q -v ON_ERROR_STOP=1 -U cafeteria -d cafeteria < db/02_funciones.sql || exit 1
+for m in db/migraciones/*.sql; do
+  [ -f "$m" ] || continue
+  docker compose exec -T postgres psql -q -v ON_ERROR_STOP=1 -U cafeteria -d cafeteria < "$m" || { echo "[X] Falló la migración $m"; exit 1; }
+done
 
 echo "[..] Recargando los flujos de n8n..."
 ./scripts/reimportar_flujos.sh >/dev/null || exit 1

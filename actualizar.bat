@@ -10,6 +10,9 @@ echo [..] Esperando la base de datos...
 docker compose exec -T postgres pg_isready -U cafeteria -d cafeteria >nul 2>nul || ( timeout /t 2 /nobreak >nul & goto espera_db )
 echo [..] Actualizando funciones de la base de datos (los datos se conservan)...
 docker compose exec -T postgres psql -q -v ON_ERROR_STOP=1 -U cafeteria -d cafeteria < db\02_funciones.sql || ( pause & exit /b 1 )
+for %%m in (db\migraciones\*.sql) do (
+  docker compose exec -T postgres psql -q -v ON_ERROR_STOP=1 -U cafeteria -d cafeteria < "%%m" || ( echo [X] Fallo la migracion %%m & pause & exit /b 1 )
+)
 echo [..] Recargando los flujos de n8n...
 docker compose exec -T n8n sh -c "n8n import:workflow --separate --input=/init/workflows && for f in /init/workflows/*.json; do id=$(grep -m1 '\"id\"' $f | sed 's/.*\"id\": *\"\([^\"]*\)\".*/\1/'); n8n publish:workflow --id=$id; done" >nul
 docker compose restart n8n >nul

@@ -24,7 +24,7 @@ MARCA = "PRUEBA CARGA"
 
 def un_pedido(i: int):
     cuerpo = json.dumps({
-        "id_cafeteria": 1 + i % 2, "canal": "QR", "segundos_espera": 30,
+        "id_cafeteria": 1, "canal": "QR", "segundos_espera": 30,
         "cliente": {"nombre": f"{MARCA} {i}", "tipo_cliente": "Estudiante", "autoriza_datos": False},
         "items": [{"id_producto": 1 + i % 19, "cantidad": 1}, {"id_producto": 1 + (i * 7) % 19, "cantidad": 2}],
     }).encode()

@@ -72,9 +72,6 @@ Caja y cocina piden **empleado + PIN** (RNF-05). El dashboard pide la contraseñ
 | Andrés Rojas | Cocina/barra | Principal | 2222 |
 | Paola Martínez | Cocina/barra | Principal | 3333 |
 | Carlos Ruiz | Coordinador (puede caja y cocina) | Principal | 9999 |
-| Diana Torres | Cajero | Torre 2 | 4444 |
-| Miguel Herrera | Cocina/barra | Torre 2 | 5555 |
-| Sofía Castro | Coordinador | Torre 2 | 8888 |
 | Dashboard | Coordinador | — | `coordinador2026` (variable `DASHBOARD_PASSWORD` en `.env`) |
 
 Los PIN se guardan cifrados (bcrypt). Tras 5 intentos fallidos el usuario queda bloqueado 5 minutos.

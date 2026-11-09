@@ -2,8 +2,7 @@
 -- Cámbienlos libremente: el resto del sistema los lee de estas tablas.
 
 INSERT INTO cafeteria (nombre, ubicacion) VALUES
-  ('Cafetería Principal', 'Sede Nogal · Primer piso'),
-  ('Cafetería Torre 2',   'Sede Nogal · Torre 2, piso 3');
+  ('Cafetería Principal', 'Sede Nogal · Primer piso');
 
 -- RN-05: las horas pico son el cambio de clase (10–11) y el almuerzo (12–14)
 INSERT INTO franja_horaria (nombre, hora_inicio, hora_fin, es_hora_pico) VALUES
@@ -19,10 +18,7 @@ INSERT INTO empleado (id_cafeteria, nombre, rol) VALUES
   (1, 'Laura Gómez',     'Cajero'),
   (1, 'Andrés Rojas',    'Cocina/barra'),
   (1, 'Paola Martínez',  'Cocina/barra'),
-  (1, 'Carlos Ruiz',     'Coordinador'),
-  (2, 'Diana Torres',    'Cajero'),
-  (2, 'Miguel Herrera',  'Cocina/barra'),
-  (2, 'Sofía Castro',    'Coordinador');
+  (1, 'Carlos Ruiz',     'Coordinador');
 
 INSERT INTO producto (nombre, categoria, precio) VALUES
   ('Tinto',                 'Bebida caliente', 2500),
@@ -48,6 +44,5 @@ INSERT INTO producto (nombre, categoria, precio) VALUES
 -- PIN del personal (RNF-05). Se guardan cifrados con bcrypt; cámbienlos antes de usarlo de verdad.
 UPDATE empleado e SET pin_hash = crypt(v.pin, gen_salt('bf'))
 FROM (VALUES ('Laura Gómez', '1111'), ('Andrés Rojas', '2222'), ('Paola Martínez', '3333'),
-             ('Carlos Ruiz', '9999'), ('Diana Torres', '4444'), ('Miguel Herrera', '5555'),
-             ('Sofía Castro', '8888')) AS v(nombre, pin)
+             ('Carlos Ruiz', '9999')) AS v(nombre, pin)
 WHERE e.nombre = v.nombre;

@@ -42,6 +42,12 @@
   enlazar();
   // Si hay varias cafeterías, se elige una vez y queda recordada en este equipo
   cargarCatalogo(sede).then(c => {
+    // Si la cafetería recordada ya no existe, se usa la primera
+    if (!c.cafeterias.some(x => String(x.id_cafeteria) === String(sede))) {
+      sede = String(c.cafeterias[0]?.id_cafeteria ?? 1);
+      try { localStorage.setItem('cafeteria_sede', sede); } catch (e) {}
+      enlazar();
+    }
     if (c.cafeterias.length < 2) return;
     $('#sedes').innerHTML = c.cafeterias.map(x => `<button data-sede="${esc(x.id_cafeteria)}">${esc(x.nombre)}</button>`).join('');
     $('#sedes').onclick = e => {
