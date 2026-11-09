@@ -1,0 +1,240 @@
+{
+  "id": "CafeEAN09CierreK",
+  "name": "09 · Cierre diario de KPI (RF-13 · RNF-09)",
+  "nodes": [
+    {
+      "id": "bc6f2b5e-59c5-50ef-ad04-44c45ce0627d",
+      "name": "Nota 0",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        -260
+      ],
+      "parameters": {
+        "content": "## 09 · Cierre diario de KPI\nCorre de lunes a sábado a las **9:00 p. m.** y cada 15 min durante el día (RNF-09).\n\nCalcula los 5 KPI por cafetería, los guarda en `kpi_diario` (los lee el dashboard de Python) y envía el resumen con semáforo contra las metas al coordinador.",
+        "width": 380,
+        "height": 300,
+        "color": 7
+      }
+    },
+    {
+      "id": "188e28f8-cec9-5112-90ca-8de0229daa47",
+      "name": "Cada 15 minutos (7 a. m.–9 p. m.)",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        -100
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "*/15 7-20 * * 1-6"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "a4fd4b45-89c7-55a9-8034-a9bc2bcadb1c",
+      "name": "Cierre 9:00 p. m.",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        100
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 21 * * 1-6"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "f288b75d-5473-5ff8-be32-b6d45cfb1ca2",
+      "name": "Recalcular KPI del día",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        240,
+        -100
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT fn_cierre_diario() AS r",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "CafPostgres00001",
+          "name": "Postgres Cafetería"
+        }
+      }
+    },
+    {
+      "id": "937266ed-72a8-5a46-ad9d-3f404249f007",
+      "name": "Calcular KPI del día",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        240,
+        100
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT fn_cierre_diario() AS r",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "CafPostgres00001",
+          "name": "Postgres Cafetería"
+        }
+      }
+    },
+    {
+      "id": "fd3f432c-2716-5bbd-bd80-0476f2f7ae5d",
+      "name": "Comparar contra metas",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        480,
+        100
+      ],
+      "parameters": {
+        "jsCode": "const r = $input.first().json.r;\nconst metas = [\n  ['kpi1', 'Tiempo de atención', v => v <= 5, ' min', '≤ 5'],\n  ['kpi2', 'Entregas correctas', v => v >= 95, ' %', '≥ 95'],\n  ['kpi3', 'Pedidos/hora pico', v => v >= 80, '', '≥ 80'],\n  ['kpi4', 'Espera en fila', v => v <= 3, ' min', '≤ 3'],\n  ['kpi5', 'Abandono de fila', v => v <= 2, ' %', '≤ 2'],\n];\nconst bloques = (r.cafeterias ?? []).map(c => {\n  const lineas = metas.map(([k, n, ok, u, meta]) => c[k] == null\n    ? `⚪ ${n}: sin datos (meta ${meta})`\n    : `${ok(Number(c[k])) ? '🟢' : '🔴'} ${n}: ${c[k]}${u} (meta ${meta})`);\n  return `🏪 ${c.cafeteria} · ${c.clientes} clientes · $${Number(c.ventas).toLocaleString('es-CO')}\\n` + lineas.join('\\n');\n});\nreturn [{ json: { mensaje: `📊 Cierre del ${r.fecha}\\n\\n` + (bloques.join('\\n\\n') || 'Sin pedidos hoy.') } }];"
+      }
+    },
+    {
+      "id": "98950afd-7c08-5d1d-8ba4-be5b949b75a2",
+      "name": "Cierre: ¿Telegram configurado?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        720,
+        100
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "196715f6-d6b2-5662-a275-83d8d7f3ffd8",
+              "leftValue": "={{ !!$env.TELEGRAM_BOT_TOKEN }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "b07046dc-98d7-5a5f-bb46-6f50243b27e2",
+      "name": "Cierre: Enviar Telegram",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        960,
+        20
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $env.TELEGRAM_BOT_TOKEN }}/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chat_id: $env.TELEGRAM_CHAT_ID || $env.TELEGRAM_CHAT_ID, text: $json.mensaje }) }}",
+        "options": {}
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Cierre: ¿Telegram configurado?": {
+      "main": [
+        [
+          {
+            "node": "Cierre: Enviar Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cada 15 minutos (7 a. m.–9 p. m.)": {
+      "main": [
+        [
+          {
+            "node": "Recalcular KPI del día",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cierre 9:00 p. m.": {
+      "main": [
+        [
+          {
+            "node": "Calcular KPI del día",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calcular KPI del día": {
+      "main": [
+        [
+          {
+            "node": "Comparar contra metas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Comparar contra metas": {
+      "main": [
+        [
+          {
+            "node": "Cierre: ¿Telegram configurado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Bogota",
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "CafeEAN00Errores"
+  },
+  "pinData": {},
+  "tags": [],
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}

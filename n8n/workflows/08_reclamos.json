@@ -1,0 +1,281 @@
+{
+  "id": "CafeEAN08Reclamo",
+  "name": "08 · Reclamos (RF-12 · KPI 2)",
+  "nodes": [
+    {
+      "id": "f5e52432-4511-5160-8b7c-384e7bdaa79c",
+      "name": "Nota 0",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        -260
+      ],
+      "parameters": {
+        "content": "## 08 · Reclamos\n`POST /webhook/reclamo`\n\nRegistra el reclamo ligado al pedido (tipo, descripción, quién lo atendió y solución). Si es de entrega (incompleto, equivocado, a otra persona) marca el pedido como **no entregado correctamente** (KPI 2) y avisa al coordinador.",
+        "width": 380,
+        "height": 300,
+        "color": 7
+      }
+    },
+    {
+      "id": "77878ad2-8422-5a19-b221-e5fc0cdd96e0",
+      "name": "POST /reclamo",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "reclamo",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "webhookId": "09ed37f4-4308-5d1f-a8d4-46daa7401712"
+    },
+    {
+      "id": "f1e7adf4-9943-5b93-94f7-e5c23d60c388",
+      "name": "Registrar reclamo",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT api_reclamo($1::jsonb) AS r",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify($json.body) }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "CafPostgres00001",
+          "name": "Postgres Cafetería"
+        }
+      }
+    },
+    {
+      "id": "edae2298-5948-577e-a455-3c87ad34a287",
+      "name": "¿Registrado?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "4876f6f5-d0b5-5980-8230-f236f4a0abfa",
+              "leftValue": "={{ $json.r.ok }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "58465296-6b6e-5c88-acee-025359b27af0",
+      "name": "Responder reclamo",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        660,
+        -120
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.r }}",
+        "options": {
+          "responseCode": 201
+        }
+      }
+    },
+    {
+      "id": "0fb53095-25ad-50b5-bc23-84767e639424",
+      "name": "Responder 409",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        660,
+        140
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.r }}",
+        "options": {
+          "responseCode": 409
+        }
+      }
+    },
+    {
+      "id": "514db632-70e2-5b8b-8966-a5c0c7029c0c",
+      "name": "Mensaje al coordinador",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const r = $input.first().json.r;\nreturn [{ json: { mensaje: `📝 Reclamo #${r.id_reclamo} (${r.tipo_reclamo}) del pedido ${r.id_pedido}: ${r.descripcion}` } }];"
+      }
+    },
+    {
+      "id": "31293e73-8dea-5d0a-9e19-4cce84073186",
+      "name": "Reclamo: ¿Telegram configurado?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1100,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "2340c674-4af9-5120-8432-670fcbfc5d5d",
+              "leftValue": "={{ !!$env.TELEGRAM_BOT_TOKEN }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "bc2da6c5-3d86-5fc2-a64a-c3d124eb5c61",
+      "name": "Reclamo: Enviar Telegram",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1340,
+        -80
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $env.TELEGRAM_BOT_TOKEN }}/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chat_id: $env.TELEGRAM_CHAT_ID || $env.TELEGRAM_CHAT_ID, text: $json.mensaje }) }}",
+        "options": {}
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Reclamo: ¿Telegram configurado?": {
+      "main": [
+        [
+          {
+            "node": "Reclamo: Enviar Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST /reclamo": {
+      "main": [
+        [
+          {
+            "node": "Registrar reclamo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar reclamo": {
+      "main": [
+        [
+          {
+            "node": "¿Registrado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Registrado?": {
+      "main": [
+        [
+          {
+            "node": "Responder reclamo",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Mensaje al coordinador",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder 409",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mensaje al coordinador": {
+      "main": [
+        [
+          {
+            "node": "Reclamo: ¿Telegram configurado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Bogota",
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "CafeEAN00Errores"
+  },
+  "pinData": {},
+  "tags": [],
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}

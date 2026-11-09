@@ -1,0 +1,117 @@
+{
+  "id": "CafeEAN01Catalog",
+  "name": "01 · Catálogo y menú (RF-03)",
+  "nodes": [
+    {
+      "id": "1908812e-08d7-58ee-937b-2ac603c58559",
+      "name": "Nota 0",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        -260
+      ],
+      "parameters": {
+        "content": "## 01 · Catálogo y menú\n`GET /webhook/catalogo?id_cafeteria=1`\n\nDevuelve cafeterías, personal activo y el menú con precio y **disponibilidad actualizada** (RF-03). Lo usan las páginas de cliente, caja y cocina.",
+        "width": 380,
+        "height": 300,
+        "color": 7
+      }
+    },
+    {
+      "id": "eeca8cd6-9f1b-5163-b7e4-4ec8417dd1af",
+      "name": "GET /catalogo",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "catalogo",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "webhookId": "024cbc51-7e9b-5b14-a649-51dbf83b7ecc"
+    },
+    {
+      "id": "e3a8a524-e474-5108-a5b5-388c844c8316",
+      "name": "Leer catálogo",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT api_catalogo($1::jsonb) AS r",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify($json.query) }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "CafPostgres00001",
+          "name": "Postgres Cafetería"
+        }
+      }
+    },
+    {
+      "id": "9b304492-0311-5ea7-acf7-3c0d495d2685",
+      "name": "Responder catálogo",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.r }}",
+        "options": {
+          "responseCode": 200
+        }
+      }
+    }
+  ],
+  "connections": {
+    "GET /catalogo": {
+      "main": [
+        [
+          {
+            "node": "Leer catálogo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Leer catálogo": {
+      "main": [
+        [
+          {
+            "node": "Responder catálogo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Bogota",
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "CafeEAN00Errores"
+  },
+  "pinData": {},
+  "tags": [],
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}

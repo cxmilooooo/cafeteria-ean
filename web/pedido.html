@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pedir · Cafetería EAN</title>
+<link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+<header class="barra">
+  <h1 id="titulo">Cafetería EAN<small>Pide desde tu celular y recoge con tu turno</small></h1>
+</header>
+
+<!-- Paso 1: menú -->
+<section id="paso-menu">
+  <main>
+    <div id="msg-menu" class="mensaje oculto"></div>
+    <div id="menu"><p class="suave">Cargando menú…</p></div>
+  </main>
+  <div class="pie-fijo">
+    <div><div class="suave">Total</div><div class="total" id="total">$0</div></div>
+    <button class="primario" id="btn-continuar" disabled>Continuar</button>
+  </div>
+</section>
+
+<!-- Paso 2: datos -->
+<section id="paso-datos" class="oculto">
+  <main>
+    <div class="tarjeta">
+      <h2>¿A nombre de quién?</h2>
+      <label for="nombre">Nombre con el que te llamamos</label>
+      <input id="nombre" maxlength="80" autocomplete="given-name" required>
+      <label for="tipo">Eres</label>
+      <select id="tipo">
+        <option>Estudiante</option><option>Docente</option><option>Administrativo</option><option>Otro</option>
+      </select>
+      <label class="check" style="margin-top:16px">
+        <input type="checkbox" id="autoriza">
+        <span>Autorizo el tratamiento de mis datos de contacto para avisarme de mi pedido y para métricas del servicio
+        (Ley 1581 de 2012). <span class="suave">Es opcional: sin autorización solo guardamos tu nombre.</span></span>
+      </label>
+      <div id="contacto" class="oculto">
+        <label for="celular">Celular</label>
+        <input id="celular" inputmode="tel" maxlength="15">
+        <label for="correo">Correo institucional</label>
+        <input id="correo" type="email" maxlength="80" placeholder="nombre@universidadean.edu.co">
+      </div>
+      <div id="resumen" class="suave" style="margin-top:14px"></div>
+      <div id="msg-datos" class="mensaje oculto"></div>
+      <div class="fila-botones" style="margin-top:14px">
+        <button id="btn-volver">Volver</button>
+        <button class="primario" id="btn-confirmar">Confirmar pedido</button>
+      </div>
+    </div>
+  </main>
+</section>
+
+<!-- Paso 3: turno, pago y seguimiento -->
+<section id="paso-turno" class="oculto">
+  <main>
+    <div class="tarjeta" style="text-align:center">
+      <div class="suave">Tu turno</div>
+      <div class="turno-grande" id="turno">—</div>
+      <div class="suave" id="info-pedido"></div>
+      <div class="pasos" id="pasos">
+        <div data-e="Registrado">Registrado</div><div data-e="Pagado">Autorizado</div>
+        <div data-e="En preparación">Preparando</div><div data-e="Listo">Listo</div><div data-e="Entregado">Entregado</div>
+      </div>
+      <div id="estado-texto" style="font-weight:600"></div>
+      <div id="aviso-listo" class="aviso-listo oculto" style="margin-top:14px">¡Tu pedido está listo! Acércate al punto de entrega y muestra tu turno.</div>
+      <div id="bloque-pago" class="mensaje ok" style="margin-top:16px;text-align:left">
+        <strong>Siguiente paso:</strong> acércate a la caja, di tu turno <strong id="turno-caja"></strong> y paga.
+        El cajero autoriza tu pedido y en ese momento pasa a cocina. Si no se autoriza en 10 minutos, el turno se cancela.
+      </div>
+      <div id="msg-turno" class="mensaje oculto"></div>
+      <button id="btn-nuevo" class="oculto" style="margin-top:14px">Hacer otro pedido</button>
+    </div>
+  </main>
+</section>
+
+<script src="comun.js"></script>
+<script>
+const idCafeteria = parametro('cafeteria', '1');
+const inicio = Date.now();                       // hora de llegada a la "fila" digital (RF-10)
+const carrito = {};                              // id_producto -> {cantidad, observaciones}
+let productos = [];
+let seguimiento = null, estadoPrevio = null;
+const ORDEN = ['Registrado', 'Pagado', 'En preparación', 'Listo', 'Entregado'];
+
+function pintarMenu() {
+  const grupos = agruparPorCategoria(productos);
+  $('#menu').innerHTML = Object.entries(grupos).map(([cat, ps]) => `
+    <div class="categoria">${esc(cat)}</div>
+    ${ps.map(p => {
+      const c = carrito[p.id_producto]?.cantidad ?? 0;
+      return `<div class="producto ${p.disponible ? '' : 'agotado'}">
+        <div class="nombre">${esc(p.nombre)}<div class="precio">${p.disponible ? pesos(p.precio) : 'Agotado'}</div></div>
+        ${p.disponible ? `<div class="cantidad">
+          <button aria-label="Quitar" data-menos="${p.id_producto}" ${c ? '' : 'disabled'}>−</button>
+          <span>${c}</span>
+          <button aria-label="Agregar" data-mas="${p.id_producto}">+</button></div>` : ''}
+      </div>
+      ${c ? `<input class="obs" data-obs="${p.id_producto}" maxlength="150" placeholder="Indicaciones (ej. sin azúcar)" value="${esc(carrito[p.id_producto].observaciones)}">` : ''}`;
+    }).join('')}`).join('');
+  const total = Object.entries(carrito).reduce((s, [id, it]) =>
+    s + it.cantidad * productos.find(p => p.id_producto == id).precio, 0);
+  $('#total').textContent = pesos(total);
+  $('#btn-continuar').disabled = total === 0;
+}
+
+$('#menu').addEventListener('click', e => {
+  const mas = e.target.dataset.mas, menos = e.target.dataset.menos;
+  if (mas) { carrito[mas] ??= { cantidad: 0, observaciones: '' }; carrito[mas].cantidad = Math.min(20, carrito[mas].cantidad + 1); }
+  if (menos && carrito[menos]) { carrito[menos].cantidad--; if (!carrito[menos].cantidad) delete carrito[menos]; }
+  if (mas || menos) pintarMenu();
+});
+$('#menu').addEventListener('input', e => {
+  const id = e.target.dataset.obs; if (id && carrito[id]) carrito[id].observaciones = e.target.value;
+});
+
+function irA(paso) {
+  ['menu', 'datos', 'turno'].forEach(p => $(`#paso-${p}`).classList.toggle('oculto', p !== paso));
+  scrollTo(0, 0);
+}
+
+$('#btn-continuar').onclick = () => {
+  $('#resumen').innerHTML = Object.entries(carrito).map(([id, it]) =>
+    `${it.cantidad} × ${esc(productos.find(p => p.id_producto == id).nombre)}`).join('<br>') +
+    `<br><strong>Total ${$('#total').textContent}</strong>`;
+  irA('datos');
+};
+$('#btn-volver').onclick = () => irA('menu');
+$('#autoriza').onchange = e => $('#contacto').classList.toggle('oculto', !e.target.checked);
+
+$('#btn-confirmar').onclick = async () => {
+  const nombre = $('#nombre').value.trim();
+  if (!nombre) return mostrarMensaje($('#msg-datos'), 'Escribe tu nombre para poder llamarte.');
+  const autoriza = $('#autoriza').checked;
+  $('#btn-confirmar').disabled = true;
+  const r = await api('pedido', {
+    id_cafeteria: Number(idCafeteria), canal: 'QR',
+    segundos_espera: Math.round((Date.now() - inicio) / 1000),
+    cliente: { nombre, tipo_cliente: $('#tipo').value, autoriza_datos: autoriza,
+               celular: autoriza ? $('#celular').value.trim() : null,
+               correo_institucional: autoriza ? $('#correo').value.trim() : null },
+    items: Object.entries(carrito).map(([id, it]) => ({ id_producto: Number(id), ...it }))
+  });
+  $('#btn-confirmar').disabled = false;
+  if (!r.ok) return mostrarMensaje($('#msg-datos'), r.mensaje);
+  try { localStorage.setItem('cafeteria_pedido', JSON.stringify({ id: r.id_pedido, fecha: new Date().toDateString() })); } catch (e) {}
+  mostrarTurno(r.id_pedido);
+};
+
+async function actualizar() {
+  if (!seguimiento) return;
+  const r = await api(`seguimiento?id_pedido=${encodeURIComponent(seguimiento)}`);
+  if (!r.ok) return;
+  $('#turno').textContent = r.numero_turno ?? '—';
+  $('#turno-caja').textContent = `#${r.numero_turno}`;
+  $('#info-pedido').textContent = `Pedido ${r.id_pedido} · ${pesos(r.valor_total)}`;
+  const idx = ORDEN.indexOf(r.estado);
+  document.querySelectorAll('#pasos div').forEach((d, i) => d.classList.toggle('hecho', idx >= i));
+  const textos = {
+    'Registrado': 'Esperando autorización en caja', 'Pagado': `Autorizado · en cola, ${r.pedidos_antes} pedido(s) antes que el tuyo`,
+    'En preparación': `Preparando tu pedido · ${r.pedidos_antes} antes que el tuyo`, 'Listo': '¡Listo para recoger!',
+    'Entregado': 'Entregado. ¡Buen provecho!', 'Abandonado': 'El turno se canceló porque no se autorizó en caja a tiempo.'
+  };
+  $('#estado-texto').textContent = textos[r.estado] ?? r.estado;
+  $('#bloque-pago').classList.toggle('oculto', r.estado !== 'Registrado');
+  $('#aviso-listo').classList.toggle('oculto', r.estado !== 'Listo');
+  $('#btn-nuevo').classList.toggle('oculto', !['Entregado', 'Abandonado'].includes(r.estado));
+  if (r.estado === 'Listo' && estadoPrevio !== 'Listo') {          // RF-08: aviso en el celular
+    campana(); if (navigator.vibrate) navigator.vibrate([300, 150, 300]);
+  }
+  estadoPrevio = r.estado;
+}
+
+function mostrarTurno(id) {
+  seguimiento = id; irA('turno'); actualizar();
+  setInterval(actualizar, 4000);
+}
+$('#btn-nuevo').onclick = () => { try { localStorage.removeItem('cafeteria_pedido'); } catch (e) {} location.reload(); };
+
+(async () => {
+  try {
+    const cat = await cargarCatalogo(idCafeteria);
+    const caf = cat.cafeterias.find(c => c.id_cafeteria == idCafeteria);
+    if (caf) $('#titulo').innerHTML = `${esc(caf.nombre)}<small>${esc(caf.ubicacion)} · pide y recoge con tu turno</small>`;
+    productos = cat.productos; pintarMenu();
+  } catch (e) { mostrarMensaje($('#msg-menu'), e.message); }
+  // Si el cliente recarga la página, retoma el seguimiento de su pedido de hoy
+  try {
+    const g = JSON.parse(localStorage.getItem('cafeteria_pedido') || 'null');
+    if (g && g.fecha === new Date().toDateString()) mostrarTurno(g.id);
+  } catch (e) {}
+})();
+</script>
+</body>
+</html>

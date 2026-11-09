@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Caja · Cafetería EAN</title>
+<link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+<header class="barra">
+  <h1>Caja<small>Registro del pedido, autorización y reclamos</small></h1>
+  <select id="sel-caf" style="width:auto"></select>
+  <span class="usuario" id="usuario"></span>
+</header>
+<main class="rejilla dos-col">
+  <div class="tarjeta">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+      <h2 style="margin:0">Nuevo pedido en caja</h2>
+      <div class="fila-botones">
+        <span class="suave" id="cronometro">Sin cliente en atención</span>
+        <button id="btn-llega">Llega cliente a la fila</button>
+        <button class="peligro" id="btn-se-va" title="RF-11">Se fue sin pedir</button>
+      </div>
+    </div>
+    <div id="menu"></div>
+    <label for="nombre-caja">Nombre del cliente (se muestra en la pantalla cuando esté listo)</label>
+    <input id="nombre-caja" maxlength="80" placeholder="Ej. Juan P.">
+    <div id="carrito" class="suave" style="margin-top:10px"></div>
+    <div id="msg-pedido" class="mensaje oculto"></div>
+    <div style="display:flex;align-items:center;gap:12px;margin-top:12px;flex-wrap:wrap">
+      <span class="total" id="total">$0</span>
+      <span style="flex:1"></span>
+      <button id="btn-limpiar">Limpiar</button>
+      <button id="btn-registrar" disabled title="El cliente paga después; queda en Por autorizar">Solo registrar</button>
+    </div>
+    <div class="suave" style="margin-top:10px">Cobrar y autorizar ahora (pasa directo a cocina):</div>
+    <div class="fila-botones" style="margin-top:6px" id="cobro-directo">
+      <button class="primario" data-directo="Efectivo" disabled>✓ Efectivo</button>
+      <button class="primario" data-directo="Tarjeta" disabled>✓ Tarjeta</button>
+      <button class="primario" data-directo="Transferencia" disabled>✓ Transferencia</button>
+    </div>
+  </div>
+
+  <div class="rejilla" style="align-content:start">
+    <div class="tarjeta">
+      <h2>Por autorizar <span class="contador" id="n-pend"></span></h2>
+      <p class="suave" style="margin-top:0">Pedidos hechos por QR (o registrados para cobrar después). Verifica los productos,
+      cobra y <strong>autoriza</strong>: solo un pedido autorizado pasa a cocina (RN-01). Sin autorización en 10 min se cancela (RN-04).</p>
+      <div id="pendientes"></div>
+      <div id="msg-pago" class="mensaje oculto"></div>
+    </div>
+    <div class="tarjeta">
+      <h2>Registrar reclamo</h2>
+      <label for="r-pedido">Pedido (ej. P00012)</label>
+      <input id="r-pedido" maxlength="10">
+      <label for="r-tipo">Tipo</label>
+      <select id="r-tipo">
+        <option>Pedido incompleto</option><option>Pedido equivocado</option>
+        <option>Entregado a otra persona</option><option>Demora</option><option>Otro</option>
+      </select>
+      <label for="r-desc">Descripción</label>
+      <textarea id="r-desc" rows="2" maxlength="300"></textarea>
+      <label for="r-sol">Solución dada (si ya se resolvió)</label>
+      <input id="r-sol" maxlength="300">
+      <div id="msg-reclamo" class="mensaje oculto"></div>
+      <button style="margin-top:10px" id="btn-reclamo">Guardar reclamo</button>
+    </div>
+  </div>
+</main>
+
+<script src="comun.js"></script>
+<script>
+let idCaf = parametro('cafeteria', '1');
+let productos = [], carrito = {}, llegada = null, sesion = null;
+
+// Cada acción viaja con el empleado y su PIN; la base de datos los vuelve a validar
+const firma = () => ({ id_cajero: sesion.id_empleado, pin: sesion.pin });
+const llamar = async (ruta, datos) => revisarSesion(await api(ruta, datos), 'caja', idCaf);
+
+const segundosEspera = () => llegada ? Math.round((Date.now() - llegada) / 1000) : 0;
+setInterval(() => {
+  $('#cronometro').textContent = llegada
+    ? `Cliente en fila hace ${Math.floor(segundosEspera() / 60)}:${String(segundosEspera() % 60).padStart(2, '0')}`
+    : 'Sin cliente en atención';
+}, 1000);
+
+function pintar() {
+  const g = agruparPorCategoria(productos.filter(p => p.disponible));
+  $('#menu').innerHTML = Object.entries(g).map(([cat, ps]) => `<div class="categoria">${esc(cat)}</div>
+    <div class="fila-botones">${ps.map(p => `<button data-add="${p.id_producto}">${esc(p.nombre)} · ${pesos(p.precio)}</button>`).join('')}</div>`).join('');
+  const lineas = Object.entries(carrito);
+  $('#carrito').innerHTML = lineas.length ? lineas.map(([id, c]) => {
+    const p = productos.find(x => x.id_producto == id);
+    return `<div class="producto"><div class="nombre">${c} × ${esc(p.nombre)}</div>
+      <div class="precio">${pesos(c * p.precio)}</div><button data-quitar="${id}">−</button></div>`;
+  }).join('') : 'Toca los productos para agregarlos.';
+  const total = lineas.reduce((s, [id, c]) => s + c * productos.find(x => x.id_producto == id).precio, 0);
+  $('#total').textContent = pesos(total);
+  const vacio = !lineas.length || !sesion;
+  $('#btn-registrar').disabled = vacio;
+  document.querySelectorAll('[data-directo]').forEach(b => b.disabled = vacio);
+}
+
+document.body.addEventListener('click', e => {
+  const a = e.target.dataset.add, q = e.target.dataset.quitar;
+  if (a) { if (!llegada) llegada = Date.now(); carrito[a] = Math.min(20, (carrito[a] || 0) + 1); pintar(); }
+  if (q) { carrito[q]--; if (!carrito[q]) delete carrito[q]; pintar(); }
+});
+
+function limpiar() { carrito = {}; llegada = null; $('#nombre-caja').value = ''; pintar(); }
+$('#btn-limpiar').onclick = limpiar;
+$('#btn-llega').onclick = () => { llegada = Date.now(); };
+
+$('#btn-se-va').onclick = async () => {
+  if (!confirm('¿Registrar que el cliente salió de la fila sin pedir?')) return;
+  const r = await llamar('abandono-fila', { id_cafeteria: Number(idCaf), ...firma(), segundos_espera: segundosEspera() });
+  mostrarMensaje($('#msg-pedido'), r.ok ? 'Abandono registrado (KPI 5).' : r.mensaje, r.ok ? 'ok' : 'error');
+  if (r.ok) limpiar();
+};
+
+// Registra el pedido en caja. Si se indica un medio de pago, lo autoriza enseguida (un solo paso).
+async function registrar(medio) {
+  const nombre = $('#nombre-caja').value.trim();
+  if (!nombre) return mostrarMensaje($('#msg-pedido'), 'Escribe el nombre del cliente: se muestra en la pantalla cuando el pedido esté listo.');
+  const botones = document.querySelectorAll('#btn-registrar, [data-directo]');
+  botones.forEach(b => b.disabled = true);
+  const r = await llamar('pedido', {
+    id_cafeteria: Number(idCaf), canal: 'Caja', ...firma(), segundos_espera: segundosEspera(),
+    cliente: { nombre, tipo_cliente: 'Otro', autoriza_datos: false },
+    items: Object.entries(carrito).map(([id, c]) => ({ id_producto: Number(id), cantidad: c }))
+  });
+  if (!r.ok) { mostrarMensaje($('#msg-pedido'), r.mensaje); pintar(); return; }
+  if (!medio) {
+    mostrarMensaje($('#msg-pedido'), `Turno ${r.numero_turno} registrado (${r.id_pedido}). Queda en "Por autorizar".`, 'ok');
+  } else {
+    const a = await llamar('autorizar', { id_pedido: r.id_pedido, medio_pago: medio, ...firma() });
+    mostrarMensaje($('#msg-pedido'), a.ok
+      ? `Turno ${a.numero_turno} (${a.cliente}) cobrado en ${medio.toLowerCase()} y autorizado · factura ${a.numero_factura}. Enviado a cocina.`
+      : `Turno ${r.numero_turno} registrado, pero no se autorizó: ${a.mensaje}`, a.ok ? 'ok' : 'error');
+  }
+  limpiar(); cargarPendientes();
+}
+$('#btn-registrar').onclick = () => registrar(null);
+document.querySelectorAll('[data-directo]').forEach(b => b.onclick = () => registrar(b.dataset.directo));
+
+async function autorizar(id, medio) {
+  const r = await llamar('autorizar', { id_pedido: id, medio_pago: medio, ...firma() });
+  mostrarMensaje($('#msg-pago'), r.ok ? `Turno ${r.numero_turno} (${r.cliente}) autorizado por ${r.autorizado_por} · factura ${r.numero_factura}. Enviado a cocina.` : r.mensaje, r.ok ? 'ok' : 'error');
+  cargarPendientes();
+}
+
+async function cargarPendientes() {
+  const r = await api(`pendientes?id_cafeteria=${idCaf}`);
+  if (!r.ok) return;
+  $('#n-pend').textContent = `(${r.pedidos.length})`;
+  $('#pendientes').innerHTML = r.pedidos.length ? r.pedidos.map(p => `
+    <div class="comanda">
+      <div class="cab"><span class="num">#${p.numero_turno}</span>
+        <span class="tiempo ${p.minutos > 7 ? 'alto' : p.minutos > 4 ? 'medio' : ''}">${p.minutos} min</span></div>
+      <div><strong>${esc(p.cliente)}</strong> · ${esc(p.canal)} · <strong>${pesos(p.valor_total)}</strong> <span class="suave">${esc(p.id_pedido)}</span></div>
+      <ul>${(p.items || []).map(i => `<li>${i.cantidad} × ${esc(i.producto)}${i.observaciones ? ` <span class="nota">(${esc(i.observaciones)})</span>` : ''}</li>`).join('')}</ul>
+      <div class="suave">Autorizar y cobrar con:</div>
+      <div class="fila-botones" style="margin-top:6px">
+        ${['Efectivo', 'Tarjeta', 'Transferencia'].map(m => `<button class="primario" data-cobrar="${esc(p.id_pedido)}" data-medio="${m}">✓ ${m}</button>`).join('')}
+      </div>
+    </div>`).join('') : '<p class="suave">No hay pedidos por autorizar.</p>';
+  document.querySelectorAll('[data-cobrar]').forEach(b => b.onclick = () => autorizar(b.dataset.cobrar, b.dataset.medio));
+}
+
+$('#btn-reclamo').onclick = async () => {
+  const r = await llamar('reclamo', { id_pedido: $('#r-pedido').value, id_empleado: sesion.id_empleado, pin: sesion.pin,
+    tipo_reclamo: $('#r-tipo').value, descripcion: $('#r-desc').value.trim() || $('#r-tipo').value, solucion: $('#r-sol').value.trim() });
+  mostrarMensaje($('#msg-reclamo'), r.ok ? `Reclamo #${r.id_reclamo} guardado.` : r.mensaje, r.ok ? 'ok' : 'error');
+  if (r.ok) ['#r-pedido', '#r-desc', '#r-sol'].forEach(s => $(s).value = '');
+};
+
+async function iniciar() {
+  const cat = await cargarCatalogo(idCaf);
+  llenarSelect($('#sel-caf'), cat.cafeterias.map(c => ({ value: c.id_cafeteria, label: c.nombre })), idCaf);
+  productos = cat.productos; pintar(); cargarPendientes();
+  sesion = await pedirIngreso('caja', idCaf, cat.empleados);
+  $('#usuario').innerHTML = `${esc(sesion.nombre)} <button id="btn-salir">Salir</button>`;
+  $('#btn-salir').onclick = () => cerrarSesion('caja', idCaf);
+  pintar();
+}
+$('#sel-caf').onchange = e => { location.search = `?cafeteria=${e.target.value}`; };
+iniciar().catch(e => mostrarMensaje($('#msg-pedido'), e.message));
+setInterval(cargarPendientes, 5000);
+</script>
+</body>
+</html>

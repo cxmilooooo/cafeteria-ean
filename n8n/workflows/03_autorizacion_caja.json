@@ -1,0 +1,281 @@
+{
+  "id": "CafeEAN03PagoCoc",
+  "name": "03 · Autorización del pedido en caja y envío a cocina (RF-04, 06 · RN-01)",
+  "nodes": [
+    {
+      "id": "44653a42-f33d-50c9-aa5c-04ef119d9df6",
+      "name": "Nota 0",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        -260
+      ],
+      "parameters": {
+        "content": "## 03 · Autorización en caja\n`POST /webhook/autorizar`\n\nEl **cajero autoriza** el pedido (hecho por QR o en caja) cuando el cliente paga en el mostrador. Se valida **con su PIN** que quien autoriza sea un cajero o el coordinador activo de esa cafetería (RNF-05) y que el pedido siga *Registrado*.\n\nAl autorizarse se crea el PAGO con su factura, el pedido pasa a *Pagado* y **entra a la cola de cocina** en orden de autorización (RN-01, RN-02). Sin autorización en 10 minutos, el flujo 06 lo cancela (RN-04).",
+        "width": 380,
+        "height": 300,
+        "color": 7
+      }
+    },
+    {
+      "id": "3fe36dab-dd52-5e9f-bae3-0ed93a08ba58",
+      "name": "POST /autorizar",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "autorizar",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "webhookId": "95a82595-04bb-56ef-bf33-1ff78bbbd96b"
+    },
+    {
+      "id": "ae6b9a7e-1ec9-5688-a956-064803aa51f8",
+      "name": "Validar solicitud del cajero",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const b = $input.first().json.body ?? {};\nconst errores = [];\nif (!(b.id_pedido ?? '').toString().trim()) errores.push('falta el número de pedido');\nif (!parseInt(b.id_cajero, 10) || !b.pin) errores.push('falta el cajero que autoriza o su PIN');\nreturn [{ json: { valido: errores.length === 0, errores,\n  autorizacion: { id_pedido: (b.id_pedido ?? '').toString().trim().toUpperCase(),\n                  id_cajero: parseInt(b.id_cajero, 10) || null, pin: (b.pin ?? '').toString(),\n                  medio_pago: b.medio_pago ?? 'Efectivo' } } }];"
+      }
+    },
+    {
+      "id": "23dfcba7-7e90-5391-9ea9-72d242df1f90",
+      "name": "¿Solicitud completa?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "9f741a84-b982-5890-8a93-5fcd897c7a56",
+              "leftValue": "={{ $json.valido }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "b68178c7-72c4-5e53-8903-f12d7d2103a3",
+      "name": "Autorizar pedido (RN-01)",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        660,
+        -80
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT api_autorizar_pedido($1::jsonb) AS r",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify($json.autorizacion) }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "CafPostgres00001",
+          "name": "Postgres Cafetería"
+        }
+      }
+    },
+    {
+      "id": "9aa10752-8e38-5495-bbc9-a4c1e54f5ccb",
+      "name": "Responder 400",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        660,
+        140
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: false, codigo: 'VALIDACION', mensaje: $json.errores.join('; ') } }}",
+        "options": {
+          "responseCode": 400
+        }
+      }
+    },
+    {
+      "id": "153c674f-3ab6-52a5-9226-15bfb632a25c",
+      "name": "¿Autorizado?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        880,
+        -80
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "763d06da-6dd7-5120-b739-074528b35172",
+              "leftValue": "={{ $json.r.ok }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "d9aa4ccd-97ea-5fcf-b18b-77931e2fab98",
+      "name": "Responder autorización y factura",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1100,
+        -160
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.r }}",
+        "options": {
+          "responseCode": 200
+        }
+      }
+    },
+    {
+      "id": "ad7ac4c3-b948-5675-a0df-3d3583c8863d",
+      "name": "Responder 409 (no autorizado)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1100,
+        20
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.r }}",
+        "options": {
+          "responseCode": 409
+        }
+      }
+    }
+  ],
+  "connections": {
+    "POST /autorizar": {
+      "main": [
+        [
+          {
+            "node": "Validar solicitud del cajero",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar solicitud del cajero": {
+      "main": [
+        [
+          {
+            "node": "¿Solicitud completa?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Solicitud completa?": {
+      "main": [
+        [
+          {
+            "node": "Autorizar pedido (RN-01)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder 400",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Autorizar pedido (RN-01)": {
+      "main": [
+        [
+          {
+            "node": "¿Autorizado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Autorizado?": {
+      "main": [
+        [
+          {
+            "node": "Responder autorización y factura",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder 409 (no autorizado)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Bogota",
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "CafeEAN00Errores"
+  },
+  "pinData": {},
+  "tags": [],
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}

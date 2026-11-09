@@ -1,0 +1,14 @@
+.block-container { padding-top: 2rem; max-width: 1280px; }
+.enc h1 { font-size: 1.6rem; margin: 0 0 .2rem; padding: 0; color: #0b0b0b; }
+.enc p { color: #52514e; margin: 0 0 1.2rem; }
+.fila-kpi { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin: 0 0 1.2rem; }
+.kpi { background: #fcfcfb; border: 1px solid rgba(11,11,11,.10); border-radius: 12px; padding: 14px 16px; }
+.kpi-nombre { font-size: .82rem; color: #52514e; min-height: 2.2em; }
+.kpi-valor { font-size: 1.9rem; font-weight: 700; color: #0b0b0b; line-height: 1.2; margin: 4px 0; }
+.kpi-meta { font-size: .8rem; color: #898781; }
+.kpi-estado { font-size: .82rem; margin-top: 6px; font-weight: 600; }
+.delta { font-size: .78rem; margin-top: 4px; }
+.delta.bueno { color: #006300; }
+.delta.malo { color: #b3261e; }
+.pie { color: #898781; font-size: .8rem; margin-top: 2rem; border-top: 1px solid #e1e0d9; padding-top: .8rem; }
+.nota-etica { background: #f0efec; border-radius: 10px; padding: 10px 14px; font-size: .88rem; color: #52514e; }

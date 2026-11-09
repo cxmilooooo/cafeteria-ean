@@ -1,0 +1,117 @@
+{
+  "id": "CafeEAN11Abandon",
+  "name": "11 · Cliente sale de la fila sin pedir (RF-11 · KPI 5)",
+  "nodes": [
+    {
+      "id": "b989c51a-a530-5e85-8c12-cb45d3dd70be",
+      "name": "Nota 0",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        -260
+      ],
+      "parameters": {
+        "content": "## 11 · Salida de la fila\n`POST /webhook/abandono-fila`\n\nEl cajero registra con un botón al cliente que se va sin pedir. Queda como pedido *Abandonado* con su hora de llegada. Alimenta el **KPI 5**.",
+        "width": 380,
+        "height": 300,
+        "color": 7
+      }
+    },
+    {
+      "id": "d228be0e-35fd-535f-bb62-3cbd65fd3093",
+      "name": "POST /abandono-fila",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "abandono-fila",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "webhookId": "48a9ad19-6181-51f5-8cc9-6ed7d321e678"
+    },
+    {
+      "id": "0b3e4000-e7ab-574c-8a7f-56de8ceec962",
+      "name": "Registrar abandono",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT api_abandono_fila($1::jsonb) AS r",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify($json.body) }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "CafPostgres00001",
+          "name": "Postgres Cafetería"
+        }
+      }
+    },
+    {
+      "id": "c2c15ce6-5b75-5570-8e9a-04a64554ebed",
+      "name": "Responder abandono",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.r }}",
+        "options": {
+          "responseCode": "={{ $json.r.ok ? 200 : 409 }}"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "POST /abandono-fila": {
+      "main": [
+        [
+          {
+            "node": "Registrar abandono",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar abandono": {
+      "main": [
+        [
+          {
+            "node": "Responder abandono",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Bogota",
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "CafeEAN00Errores"
+  },
+  "pinData": {},
+  "tags": [],
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}

@@ -1,0 +1,456 @@
+{
+  "id": "CafeEAN05Estados",
+  "name": "05 · Estados del pedido y aviso de Listo (RF-07, 08, 09)",
+  "nodes": [
+    {
+      "id": "b9ea444a-a9f1-54e0-939f-4d6db5019569",
+      "name": "Nota 0",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        -260
+      ],
+      "parameters": {
+        "content": "## 05 · Estados y aviso *Listo*\n`POST /webhook/estado`\n\nCocina/barra mueve el pedido: **Pagado → En preparación → Listo → Entregado**.\n- *Listo*: guarda `hora_listo`, registra la NOTIFICACION y muestra en la pantalla el **número y el nombre** de quien pidió; además lo publica en el canal de Telegram de la cafetería (opcional, sin datos personales).\n- *Entregado*: exige el número de turno (RF-09) y guarda si se entregó correcto.\n- Si una entrega se marca incorrecta, avisa al coordinador.",
+        "width": 380,
+        "height": 300,
+        "color": 7
+      }
+    },
+    {
+      "id": "199c6a0f-9773-5a09-90f5-ffe686c44ba9",
+      "name": "POST /estado",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "estado",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "webhookId": "72c9f980-8840-5c35-8c45-d3756691c4dc"
+    },
+    {
+      "id": "e636f745-32e4-5263-b635-e2e5bc8c7565",
+      "name": "Cambiar estado",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT api_cambiar_estado($1::jsonb) AS r",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify($json.body) }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "CafPostgres00001",
+          "name": "Postgres Cafetería"
+        }
+      }
+    },
+    {
+      "id": "bbf9a852-92f6-50e8-8cde-8baa0efee7b8",
+      "name": "¿Cambio válido?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "87daee91-171f-5bdd-b19a-0b87dabf59c6",
+              "leftValue": "={{ $json.r.ok }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "76d9e7cd-cfd5-525d-9071-47f66501b81d",
+      "name": "Responder estado",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        660,
+        -200
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.r }}",
+        "options": {
+          "responseCode": 200
+        }
+      }
+    },
+    {
+      "id": "689c678f-89ef-5e5b-b3da-33039edb3a2a",
+      "name": "Responder 409",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        660,
+        200
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.r }}",
+        "options": {
+          "responseCode": 409
+        }
+      }
+    },
+    {
+      "id": "6e7aeddf-e0ca-5578-9f47-c0cb33393f6f",
+      "name": "¿Qué estado?",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        660,
+        0
+      ],
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "2bce077a-f308-5b20-bf0c-5b7aab498ac3",
+                    "leftValue": "={{ $json.r.estado }}",
+                    "rightValue": "Listo",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Listo"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "3b8059ee-c074-5fb3-98cb-129e646b1dce",
+                    "leftValue": "={{ $json.r.entregado_correcto }}",
+                    "rightValue": false,
+                    "operator": {
+                      "type": "boolean",
+                      "operation": "false",
+                      "singleValue": true
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "Entrega incorrecta"
+            }
+          ]
+        },
+        "options": {
+          "fallbackOutput": "none"
+        }
+      }
+    },
+    {
+      "id": "e23ba4c9-aa1b-57da-abdf-3efd6b382e01",
+      "name": "Mensaje: turno listo",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        -60
+      ],
+      "parameters": {
+        "jsCode": "const r = $input.first().json.r;\n// Canal público: solo el número de turno (el nombre se ve únicamente en la pantalla del punto de entrega)\nreturn [{ json: { mensaje: `✅ Turno ${r.numero_turno} listo. Acércate al punto de entrega.` } }];"
+      }
+    },
+    {
+      "id": "feadd223-2f34-5129-8737-dc6be79a58c4",
+      "name": "Mensaje: entrega incorrecta",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        880,
+        120
+      ],
+      "parameters": {
+        "jsCode": "const r = $input.first().json.r;\nreturn [{ json: { mensaje: `❗ Entrega incorrecta registrada: pedido ${r.id_pedido} (turno ${r.numero_turno}). Revisar reclamo.` } }];"
+      }
+    },
+    {
+      "id": "316c0df9-d2d1-5a4c-bd77-097514fa164d",
+      "name": "Listo: ¿Telegram configurado?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1100,
+        -60
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "dd4f7551-ef97-51e4-83c5-b3e765ddd943",
+              "leftValue": "={{ !!$env.TELEGRAM_BOT_TOKEN }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "cec702f1-6129-566c-99ef-7a5004251c34",
+      "name": "Listo: Enviar Telegram",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1340,
+        -140
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $env.TELEGRAM_BOT_TOKEN }}/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chat_id: $env.TELEGRAM_CANAL_TURNOS || $env.TELEGRAM_CHAT_ID, text: $json.mensaje }) }}",
+        "options": {}
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "1398de2c-954b-52bb-ac94-eb0b0818c028",
+      "name": "Incorrecta: ¿Telegram configurado?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1100,
+        120
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "0a0f33fc-28db-53c3-aaf6-80130556d732",
+              "leftValue": "={{ !!$env.TELEGRAM_BOT_TOKEN }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "13d6ba20-4113-5f49-8c0a-552bbb25adcd",
+      "name": "Incorrecta: Enviar Telegram",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1340,
+        40
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $env.TELEGRAM_BOT_TOKEN }}/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chat_id: $env.TELEGRAM_CHAT_ID || $env.TELEGRAM_CHAT_ID, text: $json.mensaje }) }}",
+        "options": {}
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Listo: ¿Telegram configurado?": {
+      "main": [
+        [
+          {
+            "node": "Listo: Enviar Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Incorrecta: ¿Telegram configurado?": {
+      "main": [
+        [
+          {
+            "node": "Incorrecta: Enviar Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "POST /estado": {
+      "main": [
+        [
+          {
+            "node": "Cambiar estado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cambiar estado": {
+      "main": [
+        [
+          {
+            "node": "¿Cambio válido?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Cambio válido?": {
+      "main": [
+        [
+          {
+            "node": "Responder estado",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "¿Qué estado?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder 409",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Qué estado?": {
+      "main": [
+        [
+          {
+            "node": "Mensaje: turno listo",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Mensaje: entrega incorrecta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mensaje: turno listo": {
+      "main": [
+        [
+          {
+            "node": "Listo: ¿Telegram configurado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mensaje: entrega incorrecta": {
+      "main": [
+        [
+          {
+            "node": "Incorrecta: ¿Telegram configurado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Bogota",
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "CafeEAN00Errores"
+  },
+  "pinData": {},
+  "tags": [],
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}

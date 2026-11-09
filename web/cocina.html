@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cocina y barra · Cafetería EAN</title>
+<link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+<header class="barra">
+  <h1>Cocina y barra<small>Solo pedidos autorizados en caja, en orden de autorización (RN-01, RN-02)</small></h1>
+  <select id="sel-caf" style="width:auto"></select>
+  <span class="usuario" id="usuario"></span>
+</header>
+<main>
+  <div id="msg" class="mensaje oculto"></div>
+  <div class="rejilla tres-col">
+    <div class="tarjeta columna"><h2>Autorizados · por preparar <span class="contador" id="n-pagado"></span></h2><div id="col-pagado"></div></div>
+    <div class="tarjeta columna"><h2>En preparación <span class="contador" id="n-prep"></span></h2><div id="col-prep"></div></div>
+    <div class="tarjeta columna"><h2>Listo para entregar <span class="contador" id="n-listo"></span></h2><div id="col-listo"></div></div>
+  </div>
+</main>
+
+<script src="comun.js"></script>
+<script>
+let idCaf = parametro('cafeteria', '1');
+let vistos = new Set();
+let sesion = null;
+
+function comanda(p) {
+  const t = p.minutos_desde_pago;
+  const items = p.items.map(i => `<li>${i.cantidad} × ${esc(i.producto)}${i.observaciones ? `<div class="nota">${esc(i.observaciones)}</div>` : ''}</li>`).join('');
+  let acciones = '';
+  if (p.estado === 'Pagado') acciones = `<button class="primario" data-id="${esc(p.id_pedido)}" data-estado="En preparación">Empezar</button>`;
+  if (p.estado === 'En preparación') acciones = `<button class="primario" data-id="${esc(p.id_pedido)}" data-estado="Listo">Marcar listo</button>`;
+  if (p.estado === 'Listo') acciones = `
+    <label>Turno que muestra el cliente (RF-09)</label>
+    <input inputmode="numeric" id="t-${esc(p.id_pedido)}" placeholder="${p.numero_turno}">
+    <label class="check"><input type="checkbox" id="c-${esc(p.id_pedido)}" checked> Completo y a la persona correcta</label>
+    <button class="primario" data-id="${esc(p.id_pedido)}" data-estado="Entregado" style="margin-top:6px">Entregar</button>`;
+  return `<div class="comanda">
+    <div class="cab"><span class="num">#${p.numero_turno}</span>
+      <span class="tiempo ${t > 8 ? 'alto' : t > 5 ? 'medio' : ''}">${t} min</span></div>
+    <div><strong>${esc(p.cliente)}</strong> <span class="suave">· ${esc(p.canal)} · ${esc(p.id_pedido)}</span></div>
+    <ul>${items}</ul>${acciones}</div>`;
+}
+
+async function cargar() {
+  const r = await api(`cola?id_cafeteria=${idCaf}`);
+  if (!r.ok) return mostrarMensaje($('#msg'), r.mensaje);
+  const por = e => r.pedidos.filter(p => p.estado === e);
+  const cols = [['Pagado', 'pagado'], ['En preparación', 'prep'], ['Listo', 'listo']];
+  // No repintar mientras alguien escribe el turno de entrega
+  if (document.activeElement?.tagName === 'INPUT') return;
+  cols.forEach(([e, k]) => {
+    const ps = por(e);
+    $(`#n-${k}`).textContent = `(${ps.length})`;
+    $(`#col-${k}`).innerHTML = ps.map(comanda).join('') || '<p class="suave">—</p>';
+  });
+  const nuevos = por('Pagado').filter(p => !vistos.has(p.id_pedido));
+  if (vistos.size && nuevos.length) campana();
+  r.pedidos.forEach(p => vistos.add(p.id_pedido));
+}
+
+document.body.addEventListener('click', async e => {
+  const id = e.target.dataset.id, estado = e.target.dataset.estado;
+  if (!id) return;
+  if (!sesion) return;
+  const datos = { id_pedido: id, estado, id_empleado: sesion.id_empleado, pin: sesion.pin };
+  if (estado === 'Entregado') {
+    datos.numero_turno = Number($(`#t-${id}`).value);
+    datos.entregado_correcto = $(`#c-${id}`).checked;
+  }
+  e.target.disabled = true;
+  const r = revisarSesion(await api('estado', datos), 'cocina', idCaf);
+  if (!r.ok) { mostrarMensaje($('#msg'), r.mensaje); e.target.disabled = false; return; }
+  document.activeElement?.blur();
+  cargar();
+});
+
+async function iniciar() {
+  const cat = await cargarCatalogo(idCaf);
+  llenarSelect($('#sel-caf'), cat.cafeterias.map(c => ({ value: c.id_cafeteria, label: c.nombre })), idCaf);
+  vistos = new Set(); cargar();
+  sesion = await pedirIngreso('cocina', idCaf, cat.empleados);
+  $('#usuario').innerHTML = `${esc(sesion.nombre)} <button id="btn-salir">Salir</button>`;
+  $('#btn-salir').onclick = () => cerrarSesion('cocina', idCaf);
+}
+$('#sel-caf').onchange = e => { location.search = `?cafeteria=${e.target.value}`; };
+iniciar().catch(e => mostrarMensaje($('#msg'), e.message));
+setInterval(cargar, 4000);
+</script>
+</body>
+</html>

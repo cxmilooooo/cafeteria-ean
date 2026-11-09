@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cafetería EAN · Sistema de pedidos</title>
+<link rel="stylesheet" href="estilos.css">
+</head>
+<body>
+<header class="barra"><h1>Cafetería EAN<small>Sistema de gestión de pedidos · n8n + Postgres + Python</small></h1></header>
+<main class="portal">
+  <div class="rejilla tres-col">
+    <a class="tarjeta" href="pedido.html?cafeteria=1"><h2>📱 Pedir por QR</h2><p class="suave">Lo que ve el cliente al escanear el código (RF-01).</p></a>
+    <a class="tarjeta" href="caja.html?cafeteria=1"><h2>🧾 Caja</h2><p class="suave">Registrar pedidos, <strong>autorizarlos</strong> al cobrar y atender reclamos (RF-02, 04, 12).</p></a>
+    <a class="tarjeta" href="cocina.html?cafeteria=1"><h2>👩‍🍳 Cocina y barra</h2><p class="suave">Cola en orden de pago y cambio de estados (RF-06, 07, 09).</p></a>
+    <a class="tarjeta" href="turnos.html?cafeteria=1"><h2>📺 Pantalla de turnos</h2><p class="suave">Número y nombre de quien pidió cuando el pedido está listo (RF-08).</p></a>
+    <a class="tarjeta" id="lnk-dash" href="#"><h2>📊 Dashboard de KPI</h2><p class="suave">Los 5 KPI con metas, filtros y analítica (RF-13).</p></a>
+    <a class="tarjeta" id="lnk-n8n" href="#"><h2>⚙️ n8n</h2><p class="suave">Ver y editar los flujos de automatización.</p></a>
+  </div>
+  <p class="suave" style="margin-top:20px">Cafetería 2: agreguen <code>?cafeteria=2</code> a cualquier página.</p>
+</main>
+<script>
+  const h = location.hostname;
+  document.getElementById('lnk-dash').href = `http://${h}:8501`;
+  document.getElementById('lnk-n8n').href = `http://${h}:5678`;
+</script>
+</body>
+</html>

@@ -1,0 +1,88 @@
+{
+  "id": "CafeEAN06Abandon",
+  "name": "06 · Abandono automático de turnos sin pago (RN-04 · RF-11)",
+  "nodes": [
+    {
+      "id": "6f8c1acb-191f-5480-9656-f56d8a1f3954",
+      "name": "Nota 0",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        -260
+      ],
+      "parameters": {
+        "content": "## 06 · Abandono automático\nCorre **cada minuto**.\n\nTodo turno *Registrado* que no se paga en **10 minutos** se cancela, queda como *Abandonado* con `abandono_fila = true` y se anota en el historial. Alimenta el **KPI 5**.",
+        "width": 380,
+        "height": 300,
+        "color": 7
+      }
+    },
+    {
+      "id": "1a7c3b28-24da-566e-8750-3908c46a9b1c",
+      "name": "Cada minuto",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "51f9a2ae-e102-5a2f-bc81-e453f5504a5e",
+      "name": "Cancelar turnos vencidos",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT fn_marcar_abandonos(10) AS r",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "CafPostgres00001",
+          "name": "Postgres Cafetería"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Cada minuto": {
+      "main": [
+        [
+          {
+            "node": "Cancelar turnos vencidos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Bogota",
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "CafeEAN00Errores"
+  },
+  "pinData": {},
+  "tags": [],
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}

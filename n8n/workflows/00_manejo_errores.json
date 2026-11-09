@@ -1,0 +1,175 @@
+{
+  "id": "CafeEAN00Errores",
+  "name": "00 · Manejo de errores (continuidad)",
+  "nodes": [
+    {
+      "id": "59cc8914-10ba-5d9e-baa6-aa1addce4e61",
+      "name": "Nota 0",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        -260
+      ],
+      "parameters": {
+        "content": "## 00 · Manejo de errores\nSe ejecuta cuando **cualquier** flujo de la cafetería falla.\n\nRegistra la alerta en la base de datos y, si Telegram está configurado, avisa al líder de turno para activar la contingencia (comandas foliadas).\n\n**Matriz de riesgos 1 y 2 · Continuidad 11**",
+        "width": 380,
+        "height": 300,
+        "color": 7
+      }
+    },
+    {
+      "id": "8ddd7ab1-d7a8-5eaa-b35b-5b4923c4625f",
+      "name": "Error en un flujo",
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "6484a4a1-2cde-57c5-a8d6-e63329b146bd",
+      "name": "Armar mensaje de error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const e = $input.first().json;\nconst flujo = e.workflow?.name ?? 'desconocido';\nconst nodo = e.execution?.lastNodeExecuted ?? '?';\nconst msg = e.execution?.error?.message ?? e.trigger?.error?.message ?? 'sin detalle';\nreturn [{ json: {\n  flujo, nodo, error: msg,\n  mensaje: `⚠️ Cafetería EAN: falló el flujo \"${flujo}\" en el nodo \"${nodo}\".\\n${msg}\\nSi el sistema no responde en 30 min (RTO), activar comandas foliadas.`\n}}];"
+      }
+    },
+    {
+      "id": "3d5d4ecb-78f9-5ee8-ba1d-859d42a320c6",
+      "name": "Registrar alerta",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        460,
+        100
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO alerta (tipo, mensaje) VALUES ('Error de flujo', left($1, 400)) RETURNING id_alerta",
+        "options": {
+          "queryReplacement": "={{ $json.mensaje }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "CafPostgres00001",
+          "name": "Postgres Cafetería"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "53c38426-ed15-5469-ae8b-95372a8ebd9c",
+      "name": "Error: ¿Telegram configurado?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        460,
+        -100
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "349ca8e8-0148-5d40-b256-9064cc6ccf16",
+              "leftValue": "={{ !!$env.TELEGRAM_BOT_TOKEN }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "a1053bff-d55f-5332-8cdf-9f251b9cdd7f",
+      "name": "Error: Enviar Telegram",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        700,
+        -180
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $env.TELEGRAM_BOT_TOKEN }}/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chat_id: $env.TELEGRAM_CHAT_ID || $env.TELEGRAM_CHAT_ID, text: $json.mensaje }) }}",
+        "options": {}
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Error: ¿Telegram configurado?": {
+      "main": [
+        [
+          {
+            "node": "Error: Enviar Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Error en un flujo": {
+      "main": [
+        [
+          {
+            "node": "Armar mensaje de error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Armar mensaje de error": {
+      "main": [
+        [
+          {
+            "node": "Registrar alerta",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Error: ¿Telegram configurado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Bogota",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "pinData": {},
+  "tags": [],
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}

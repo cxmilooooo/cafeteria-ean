@@ -1,0 +1,281 @@
+{
+  "id": "CafeEAN02Pedidos",
+  "name": "02 · Recepción de pedido y turno (RF-01, 02, 05, 10)",
+  "nodes": [
+    {
+      "id": "fdaa5efb-7652-5f75-80f0-8cc39c29c13b",
+      "name": "Nota 0",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        -260
+      ],
+      "parameters": {
+        "content": "## 02 · Recepción de pedido\n`POST /webhook/pedido`\n\n1. Valida la estructura (canal, cantidades, nombre).\n2. La base de datos revisa disponibilidad, asigna el **turno único del día** (RN-03), guarda PEDIDO + DETALLE con `hora_llegada_fila` y `hora_toma_pedido` (RF-10) y registra la NOTIFICACION *Pedido recibido*.\n3. Responde el turno al celular o a la caja. El pedido queda *Registrado* esperando la autorización del cajero.\n\nEl pedido se registra **una sola vez** (fricción 3).",
+        "width": 380,
+        "height": 300,
+        "color": 7
+      }
+    },
+    {
+      "id": "0c9795e6-716c-5840-8ed8-3412ae068acf",
+      "name": "POST /pedido",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "pedido",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "webhookId": "ddcbcf46-69de-5a60-aab0-3bcbdaf6a7f1"
+    },
+    {
+      "id": "6dd19195-b593-541c-baa6-e3f7f3556a70",
+      "name": "Validar y normalizar",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        0
+      ],
+      "parameters": {
+        "jsCode": "const b = $input.first().json.body ?? {};\nconst errores = [];\nconst canal = b.canal === 'Caja' ? 'Caja' : (b.canal === 'QR' ? 'QR' : null);\nif (!canal) errores.push('canal debe ser QR o Caja');\nconst caf = parseInt(b.id_cafeteria, 10);\nif (!caf) errores.push('id_cafeteria es obligatorio');\nconst items = Array.isArray(b.items) ? b.items : [];\nif (items.length === 0) errores.push('el pedido debe tener al menos un producto');\nconst limpios = items.map(i => ({\n  id_producto: parseInt(i.id_producto, 10),\n  cantidad: parseInt(i.cantidad, 10),\n  observaciones: (i.observaciones ?? '').toString().slice(0, 150)\n}));\nif (limpios.some(i => !i.id_producto || !(i.cantidad >= 1 && i.cantidad <= 20)))\n  errores.push('cada producto necesita id y cantidad entre 1 y 20');\nconst cli = b.cliente ?? {};\n// El nombre es obligatorio en ambos canales: se muestra en la pantalla de turnos cuando el pedido está listo\nif (!(cli.nombre ?? '').trim()) errores.push('el nombre del cliente es obligatorio (se muestra en la pantalla al estar listo)');\nif (canal === 'Caja' && (!b.id_cajero || !b.pin)) errores.push('un pedido en caja necesita el cajero que lo registra y su PIN');\n// Ley 1581: los datos de contacto solo viajan si hay autorización explícita\nconst autoriza = cli.autoriza_datos === true;\nconst pedido = {\n  id_cafeteria: caf, canal, id_cajero: b.id_cajero ?? null, pin: canal === 'Caja' ? (b.pin ?? null) : null,\n  segundos_espera: Math.max(0, Math.min(1800, parseInt(b.segundos_espera, 10) || 0)),\n  cliente: { nombre: (cli.nombre ?? '').trim(), tipo_cliente: cli.tipo_cliente ?? 'Otro',\n             autoriza_datos: autoriza,\n             celular: autoriza ? (cli.celular ?? null) : null,\n             correo_institucional: autoriza ? (cli.correo_institucional ?? null) : null },\n  items: limpios\n};\nreturn [{ json: { valido: errores.length === 0, errores, pedido } }];"
+      }
+    },
+    {
+      "id": "c9a650ca-ba33-5b6b-aa35-4d32e8f21b44",
+      "name": "¿Datos válidos?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        440,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "57df9e67-e6ba-5a55-bd22-b290ea53c1e7",
+              "leftValue": "={{ $json.valido }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "850c6698-6d7f-5db9-8c02-7a8627c33424",
+      "name": "Crear pedido y asignar turno",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        660,
+        -80
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT api_crear_pedido($1::jsonb) AS r",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify($json.pedido) }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "CafPostgres00001",
+          "name": "Postgres Cafetería"
+        }
+      }
+    },
+    {
+      "id": "1d1d3b31-77f9-5ad6-b70a-aea7c9ab5943",
+      "name": "Responder 400 (datos inválidos)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        660,
+        140
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { ok: false, codigo: 'VALIDACION', mensaje: $json.errores.join('; ') } }}",
+        "options": {
+          "responseCode": 400
+        }
+      }
+    },
+    {
+      "id": "b00c0ed1-86b0-5455-b3a0-283da092d5b5",
+      "name": "¿Pedido creado?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        880,
+        -80
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "cd522a7f-0ad0-5ccb-bf8f-03e753957cbc",
+              "leftValue": "={{ $json.r.ok }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "c8b9965b-dcba-5fdb-ab51-d630e0bf7eed",
+      "name": "Responder turno",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1100,
+        -160
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.r }}",
+        "options": {
+          "responseCode": 201
+        }
+      }
+    },
+    {
+      "id": "2bf8a1ba-40f3-5dec-9955-7bc994679c0e",
+      "name": "Responder 409 (agotado u otro)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        1100,
+        20
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.r }}",
+        "options": {
+          "responseCode": 409
+        }
+      }
+    }
+  ],
+  "connections": {
+    "POST /pedido": {
+      "main": [
+        [
+          {
+            "node": "Validar y normalizar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar y normalizar": {
+      "main": [
+        [
+          {
+            "node": "¿Datos válidos?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Datos válidos?": {
+      "main": [
+        [
+          {
+            "node": "Crear pedido y asignar turno",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder 400 (datos inválidos)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Crear pedido y asignar turno": {
+      "main": [
+        [
+          {
+            "node": "¿Pedido creado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "¿Pedido creado?": {
+      "main": [
+        [
+          {
+            "node": "Responder turno",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Responder 409 (agotado u otro)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Bogota",
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "CafeEAN00Errores"
+  },
+  "pinData": {},
+  "tags": [],
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}

@@ -1,0 +1,360 @@
+{
+  "id": "CafeEAN04Consult",
+  "name": "04 · Consultas en vivo: cola, caja, seguimiento y turnos (RF-06, 08)",
+  "nodes": [
+    {
+      "id": "96277e4b-d358-5124-a702-4eb6e6d8a83e",
+      "name": "Nota 0",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        -260
+      ],
+      "parameters": {
+        "content": "## 04 · Consultas en vivo\n- `GET /cola?id_cafeteria=1` → cola de cocina en orden de pago (RN-02)\n- `GET /pendientes?id_cafeteria=1` → pedidos que esperan autorización del cajero\n- `GET /seguimiento?id_pedido=P00001` → estado para el celular del cliente\n- `GET /turnos?id_cafeteria=1` → pantalla de turnos: número de turno, pedido y **nombre** de quien pidió",
+        "width": 380,
+        "height": 300,
+        "color": 7
+      }
+    },
+    {
+      "id": "396b8ff0-1154-5426-a1ac-d3faf7092f55",
+      "name": "GET /cola",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "cola",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "webhookId": "31c645e4-5373-56d6-a739-fffe52097dfa"
+    },
+    {
+      "id": "be472969-2663-56b2-beff-aed98fb7a100",
+      "name": "Consultar cola",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT api_cola($1::jsonb) AS r",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify($json.query) }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "CafPostgres00001",
+          "name": "Postgres Cafetería"
+        }
+      }
+    },
+    {
+      "id": "644a2f2c-ed34-581e-a1db-ccb40cae26b3",
+      "name": "Responder cola",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.r }}",
+        "options": {
+          "responseCode": 200
+        }
+      }
+    },
+    {
+      "id": "f6156056-8976-582e-8eec-c6adf8543608",
+      "name": "GET /pendientes",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        180
+      ],
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "pendientes",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "webhookId": "29f0dfb4-03b1-56f7-b6eb-4586ddc4cd8b"
+    },
+    {
+      "id": "83b625a0-a115-5d3a-88c2-d2e460bbdcd2",
+      "name": "Consultar pendientes",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        240,
+        180
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT api_pendientes_pago($1::jsonb) AS r",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify($json.query) }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "CafPostgres00001",
+          "name": "Postgres Cafetería"
+        }
+      }
+    },
+    {
+      "id": "afb3e946-5eb8-56d7-93ec-2ee89df2fc2a",
+      "name": "Responder pendientes",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        480,
+        180
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.r }}",
+        "options": {
+          "responseCode": 200
+        }
+      }
+    },
+    {
+      "id": "190f01e8-1b9f-505b-a441-2ad2e4067d3e",
+      "name": "GET /seguimiento",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        360
+      ],
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "seguimiento",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "webhookId": "90385e16-fadc-5d29-9c31-706aee1cc17d"
+    },
+    {
+      "id": "4caa016f-0a30-5c83-bea9-36300d3df5bc",
+      "name": "Consultar seguimiento",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        240,
+        360
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT api_seguimiento($1::jsonb) AS r",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify($json.query) }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "CafPostgres00001",
+          "name": "Postgres Cafetería"
+        }
+      }
+    },
+    {
+      "id": "d39f47c9-30d6-533a-a3fd-63b6b24a375e",
+      "name": "Responder seguimiento",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        480,
+        360
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.r }}",
+        "options": {
+          "responseCode": "={{ $json.r.ok ? 200 : 404 }}"
+        }
+      }
+    },
+    {
+      "id": "9360a6f8-1925-53d2-8b91-2a17c2aaa5b6",
+      "name": "GET /turnos",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        540
+      ],
+      "parameters": {
+        "httpMethod": "GET",
+        "path": "turnos",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "webhookId": "4b96d0bd-498f-5b37-94fa-542882799be3"
+    },
+    {
+      "id": "6bc3a768-2eda-5d81-b604-197b7c13e03b",
+      "name": "Consultar turnos",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        240,
+        540
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT api_turnos($1::jsonb) AS r",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify($json.query) }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "CafPostgres00001",
+          "name": "Postgres Cafetería"
+        }
+      }
+    },
+    {
+      "id": "1f84b5ed-08be-5ac1-b729-41609bf055cc",
+      "name": "Responder turnos",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        480,
+        540
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.r }}",
+        "options": {
+          "responseCode": 200
+        }
+      }
+    }
+  ],
+  "connections": {
+    "GET /cola": {
+      "main": [
+        [
+          {
+            "node": "Consultar cola",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar cola": {
+      "main": [
+        [
+          {
+            "node": "Responder cola",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GET /pendientes": {
+      "main": [
+        [
+          {
+            "node": "Consultar pendientes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar pendientes": {
+      "main": [
+        [
+          {
+            "node": "Responder pendientes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GET /seguimiento": {
+      "main": [
+        [
+          {
+            "node": "Consultar seguimiento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar seguimiento": {
+      "main": [
+        [
+          {
+            "node": "Responder seguimiento",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GET /turnos": {
+      "main": [
+        [
+          {
+            "node": "Consultar turnos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar turnos": {
+      "main": [
+        [
+          {
+            "node": "Responder turnos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Bogota",
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "CafeEAN00Errores"
+  },
+  "pinData": {},
+  "tags": [],
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}

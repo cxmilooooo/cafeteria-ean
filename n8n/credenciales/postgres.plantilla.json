@@ -1,0 +1,17 @@
+[
+  {
+    "id": "CafPostgres00001",
+    "name": "Postgres Cafetería",
+    "type": "postgres",
+    "data": {
+      "host": "postgres",
+      "port": 5432,
+      "database": "cafeteria",
+      "user": "cafeteria",
+      "password": "__DB_PASSWORD__",
+      "ssl": "disable",
+      "allowUnauthorizedCerts": false,
+      "sshTunnel": false
+    }
+  }
+]

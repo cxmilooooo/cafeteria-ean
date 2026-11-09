@@ -1,0 +1,222 @@
+{
+  "id": "CafeEAN07Alerta3",
+  "name": "07 · Alerta de espera en hora pico (RF-14 · KPI 4)",
+  "nodes": [
+    {
+      "id": "1a3277f0-0a19-517c-89d2-8f83068023e1",
+      "name": "Nota 0",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        -260
+      ],
+      "parameters": {
+        "content": "## 07 · Alerta de espera\nCorre **cada 5 minutos**. Solo actúa dentro de las franjas pico (RN-05: 10–11 y 12–14).\n\nSi la espera promedio de los últimos 30 min supera **3 minutos**, registra la alerta y avisa al coordinador para que abra la **terminal de cobro móvil** (control del riesgo 2). No repite la alerta en 15 minutos.",
+        "width": 380,
+        "height": 300,
+        "color": 7
+      }
+    },
+    {
+      "id": "eb5cdfe6-4792-5ad8-a623-cbf7800490e8",
+      "name": "Cada 5 minutos",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "564fb9e7-af54-5c1d-8a49-04cbc047cd73",
+      "name": "Medir espera por cafetería",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT * FROM fn_evaluar_espera(3)",
+        "options": {}
+      },
+      "credentials": {
+        "postgres": {
+          "id": "CafPostgres00001",
+          "name": "Postgres Cafetería"
+        }
+      }
+    },
+    {
+      "id": "76c52e1f-1c06-58fc-8ff0-19b305e89ab9",
+      "name": "Registrar alerta",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO alerta (id_cafeteria, tipo, mensaje, valor) VALUES ($1, 'Espera alta', $2, $3) RETURNING *",
+        "options": {
+          "queryReplacement": "={{ [ $json.id_cafeteria, `Espera promedio de ${$json.espera_promedio} min en ${$json.franja} (${$json.pedidos} pedidos, ${$json.pendientes_cocina} en cocina). Meta ≤ 3 min: abrir cobro móvil.`, $json.espera_promedio ] }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "CafPostgres00001",
+          "name": "Postgres Cafetería"
+        }
+      }
+    },
+    {
+      "id": "239d8523-8c3c-52ac-b754-7f5827d9f7d3",
+      "name": "Mensaje al coordinador",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        720,
+        0
+      ],
+      "parameters": {
+        "jsCode": "return $input.all().map(i => ({ json: {\n  mensaje: `⏱️ ${i.json.mensaje}`\n}}));"
+      }
+    },
+    {
+      "id": "4b62d2fe-954d-5809-ab4c-79e87b85aa03",
+      "name": "Espera: ¿Telegram configurado?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        960,
+        0
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "9ee331db-5375-5707-b94c-1cc08b921b7a",
+              "leftValue": "={{ !!$env.TELEGRAM_BOT_TOKEN }}",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "rightValue": ""
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      }
+    },
+    {
+      "id": "a5f361ac-61ef-58bb-8791-bdb7b3a27aa9",
+      "name": "Espera: Enviar Telegram",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1200,
+        -80
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.telegram.org/bot{{ $env.TELEGRAM_BOT_TOKEN }}/sendMessage",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ chat_id: $env.TELEGRAM_CHAT_ID || $env.TELEGRAM_CHAT_ID, text: $json.mensaje }) }}",
+        "options": {}
+      },
+      "onError": "continueRegularOutput"
+    }
+  ],
+  "connections": {
+    "Espera: ¿Telegram configurado?": {
+      "main": [
+        [
+          {
+            "node": "Espera: Enviar Telegram",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Cada 5 minutos": {
+      "main": [
+        [
+          {
+            "node": "Medir espera por cafetería",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Medir espera por cafetería": {
+      "main": [
+        [
+          {
+            "node": "Registrar alerta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Registrar alerta": {
+      "main": [
+        [
+          {
+            "node": "Mensaje al coordinador",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Mensaje al coordinador": {
+      "main": [
+        [
+          {
+            "node": "Espera: ¿Telegram configurado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Bogota",
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "CafeEAN00Errores"
+  },
+  "pinData": {},
+  "tags": [],
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}

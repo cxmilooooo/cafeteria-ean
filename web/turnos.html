@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Turnos · Cafetería EAN</title>
+<link rel="stylesheet" href="estilos.css">
+<style>
+  .lista { display: grid; gap: 12px; }
+  .listos .lista { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+  .ficha { display: flex; align-items: center; gap: 16px; padding: 12px 16px; border-radius: 12px;
+           background: var(--fondo); border: 1px solid var(--borde); }
+  .ficha .n { font-size: clamp(2rem, 5vw, 4rem); font-weight: 800; min-width: 1.8em; text-align: center;
+              font-variant-numeric: tabular-nums; line-height: 1; }
+  .ficha .quien { font-size: clamp(1.1rem, 2.4vw, 2rem); font-weight: 700; overflow-wrap: anywhere; }
+  .ficha .ped { color: var(--texto-suave); font-size: clamp(.8rem, 1.3vw, 1.1rem); }
+  .listos .ficha { background: var(--acento-suave); border-color: var(--listo); }
+  .listos .ficha .n { color: var(--listo); }
+  .ficha.nueva { animation: latido 1s ease-in-out 4; }
+  .prep .ficha { padding: 8px 14px; }
+  .prep .ficha .n { font-size: clamp(1.4rem, 3vw, 2.4rem); }
+  .prep .ficha .quien { font-size: clamp(1rem, 1.8vw, 1.4rem); font-weight: 600; }
+  .pantalla { grid-template-columns: 1fr 2fr; }
+  @media (max-width: 700px) { .pantalla { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header class="barra"><h1 id="titulo">Turnos</h1><span class="suave" id="hora"></span></header>
+<div class="pantalla">
+  <section class="prep"><h2>En preparación</h2><div class="lista" id="prep"></div></section>
+  <section class="listos"><h2>¡Listo! Acércate al punto de entrega</h2><div class="lista" id="listos"></div></section>
+</div>
+<script src="comun.js"></script>
+<script>
+const idCaf = parametro('cafeteria', '1');
+let previos = null;
+
+const ficha = (t, nueva) => `<div class="ficha ${nueva ? 'nueva' : ''}">
+    <div class="n">${esc(t.numero_turno)}</div>
+    <div><div class="quien">${esc(String(t.cliente).slice(0, 30))}</div><div class="ped">Pedido ${esc(t.id_pedido)}</div></div>
+  </div>`;
+
+async function cargar() {
+  const r = await api(`turnos?id_cafeteria=${idCaf}`);
+  if (!r.ok) return;
+  const nuevos = previos ? r.listos.filter(t => !previos.includes(t.id_pedido)) : [];
+  $('#prep').innerHTML = r.en_preparacion.map(t => ficha(t, false)).join('') || '<p class="suave">—</p>';
+  $('#listos').innerHTML = r.listos.map(t => ficha(t, nuevos.some(n => n.id_pedido === t.id_pedido))).join('')
+    || '<p class="suave">—</p>';
+  if (nuevos.length) campana();
+  previos = r.listos.map(t => t.id_pedido);
+}
+cargarCatalogo(idCaf).then(c => {
+  const caf = c.cafeterias.find(x => x.id_cafeteria == idCaf);
+  if (caf) $('#titulo').textContent = `Turnos · ${caf.nombre}`;
+}).catch(() => {});
+setInterval(() => $('#hora').textContent = new Date().toLocaleTimeString('es-CO', { hour: '2-digit', minute: '2-digit' }), 1000);
+cargar(); setInterval(cargar, 3000);
+</script>
+</body>
+</html>

@@ -1,0 +1,117 @@
+{
+  "id": "CafeEAN12Ingreso",
+  "name": "12 · Ingreso del personal con PIN (RNF-05)",
+  "nodes": [
+    {
+      "id": "49f22ac6-7b2b-5fff-ad94-0a8b6441eebf",
+      "name": "Nota 0",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        -260
+      ],
+      "parameters": {
+        "content": "## 12 · Ingreso del personal\n`POST /webhook/ingreso`\n\nCaja y cocina piden **empleado + PIN** antes de trabajar. La base de datos compara el PIN cifrado (bcrypt), revisa el rol y la cafetería y **bloquea 5 minutos** tras 5 intentos fallidos. Cada acción posterior (registrar, autorizar, cambiar estado, reclamo) vuelve a validar el PIN, así que nadie puede autorizar pedidos llamando al webhook directamente.",
+        "width": 380,
+        "height": 300,
+        "color": 7
+      }
+    },
+    {
+      "id": "f46c318c-3872-5b74-991f-eaff7a6e312e",
+      "name": "POST /ingreso",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ingreso",
+        "responseMode": "responseNode",
+        "options": {
+          "allowedOrigins": "*"
+        }
+      },
+      "webhookId": "0b3b92ac-40ba-513d-b8f7-08766c2f414f"
+    },
+    {
+      "id": "ee4fcc76-0fa4-56bf-94c6-8fa9b363c8cf",
+      "name": "Verificar PIN y rol",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.8,
+      "position": [
+        240,
+        0
+      ],
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT api_ingreso($1::jsonb) AS r",
+        "options": {
+          "queryReplacement": "={{ JSON.stringify($json.body) }}"
+        }
+      },
+      "credentials": {
+        "postgres": {
+          "id": "CafPostgres00001",
+          "name": "Postgres Cafetería"
+        }
+      }
+    },
+    {
+      "id": "e6333824-06f5-5976-8658-207316a289b3",
+      "name": "Responder ingreso",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.4,
+      "position": [
+        480,
+        0
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json.r }}",
+        "options": {
+          "responseCode": "={{ $json.r.ok ? 200 : 401 }}"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "POST /ingreso": {
+      "main": [
+        [
+          {
+            "node": "Verificar PIN y rol",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verificar PIN y rol": {
+      "main": [
+        [
+          {
+            "node": "Responder ingreso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "America/Bogota",
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": "CafeEAN00Errores"
+  },
+  "pinData": {},
+  "tags": [],
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}
