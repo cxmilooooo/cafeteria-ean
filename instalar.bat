@@ -53,8 +53,8 @@ curl -sf "http://localhost:8080/api/catalogo?id_cafeteria=1" >nul 2>nul
 if errorlevel 1 goto espera
 echo  [OK] Flujos de n8n activos.
 
-echo  [..] Cargando datos de demostracion (si ya existen, se omite)...
-docker compose exec -T dashboard python generar_datos_demo.py --dias 15
+rem El sistema queda vacio, listo para usar. Datos de demostracion (opcional):
+rem   docker compose exec dashboard python generar_datos_demo.py --dias 15
 
 echo.
 echo  ==============================================

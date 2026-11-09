@@ -30,8 +30,8 @@ until curl -sf "http://localhost:8080/api/catalogo?id_cafeteria=1" >/dev/null 2>
 done
 echo "[OK] Flujos de n8n activos."
 
-echo "[..] Cargando datos de demostración (si ya existen, se omite)..."
-docker compose exec -T dashboard python generar_datos_demo.py --dias 15 || true
+# El sistema queda vacío, listo para usar. Datos de demostración (opcional):
+#   docker compose exec dashboard python generar_datos_demo.py --dias 15
 
 cat <<'FIN'
 
