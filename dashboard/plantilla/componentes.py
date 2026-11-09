@@ -2,7 +2,7 @@
 
 Toda página se arma con las mismas piezas, en el mismo orden:
 
-    encabezado(...)  ->  f = filtros()  ->  fila_kpis(...) / grafico(...) / tabla(...)
+    encabezado(...)  ->  f = filtros()  ->  contadores(...) / fila_kpis(...) / subtitulo(...) / grafico(...)
 
 Así cualquier integrante puede agregar una página nueva y se verá igual que las demás.
 """
@@ -20,40 +20,81 @@ def encabezado(titulo: str, descripcion: str) -> None:
                 unsafe_allow_html=True)
 
 
-def filtros(incluir_fecha: bool = True) -> dict:
-    """Filtros únicos en la barra lateral: fecha, franja horaria y cafetería (RF-13)."""
+PERIODOS = ["Hoy", "Últimos 7 días", "Últimos 30 días", "Todo"]
+CLAVES_FILTROS = ("f_periodo", "f_caf", "f_pico")  # se conservan al cambiar de página
+
+
+def filtros(periodo: bool = True, pico: bool = True) -> dict:
+    """Filtros únicos, en una fila arriba de la página (RF-13).
+
+    - Periodo: Hoy / Últimos 7 días / Últimos 30 días / Todo
+    - Cafetería: solo aparece si hay más de una ("Todas" por defecto)
+    - Solo horas pico (RN-05)
+    """
     cat = datos.catalogos()
     caf, fr, rango = cat["cafeterias"], cat["franjas"], cat["rango"]
     hoy = date.today()
-    hasta_dato = rango["hasta"] or hoy
-    desde_dato = rango["desde"] or hoy
-    with st.sidebar:
-        st.markdown("### Filtros")
-        if incluir_fecha:
-            preset = st.radio("Periodo", ["Hoy", "Últimos 7 días", "Últimos 30 días", "Todo", "Personalizado"],
-                              index=3, key="f_periodo")
-            if preset == "Hoy":
-                desde, hasta = hoy, hoy
-            elif preset == "Últimos 7 días":
-                desde, hasta = hasta_dato - timedelta(days=6), hasta_dato
-            elif preset == "Últimos 30 días":
-                desde, hasta = hasta_dato - timedelta(days=29), hasta_dato
-            elif preset == "Todo":
-                desde, hasta = desde_dato, hasta_dato
-            else:
-                sel = st.date_input("Rango", (desde_dato, hasta_dato), key="f_rango")
-                desde, hasta = (sel[0], sel[-1]) if isinstance(sel, (tuple, list)) and sel else (desde_dato, hasta_dato)
-        else:
-            desde = hasta = hoy
-        nombres_caf = st.multiselect("Cafetería", caf.nombre.tolist(), default=caf.nombre.tolist(), key="f_caf")
-        solo_pico = st.toggle("Solo horas pico (RN-05)", value=False, key="f_pico")
-        opciones_fr = fr[fr.es_hora_pico] if solo_pico else fr
-        nombres_fr = st.multiselect("Franja horaria", opciones_fr.nombre.tolist(),
-                                    default=opciones_fr.nombre.tolist(), key=f"f_fr_{solo_pico}")
-        st.caption("Datos de la base de la cafetería · se actualizan cada 30 s")
-    ids_caf = tuple(int(i) for i in caf[caf.nombre.isin(nombres_caf)].id_cafeteria) or (-1,)
-    ids_fr = tuple(int(i) for i in fr[fr.nombre.isin(nombres_fr)].id_franja) or (-1,)
-    return {"desde": desde, "hasta": hasta, "cafeterias": ids_caf, "franjas": ids_fr}
+    varias = len(caf) > 1
+    anchos = [3] * periodo + [2] * varias + [1.4] * pico
+    cols = iter(st.columns(anchos + [max(0.1, 8 - sum(anchos))], vertical_alignment="bottom")) if anchos else iter(())
+    desde = hasta = hoy
+    if periodo:
+        with next(cols):
+            st.session_state.setdefault("f_periodo", "Últimos 30 días")
+            elegido = st.segmented_control("Periodo", PERIODOS, key="f_periodo") or "Últimos 30 días"
+        if elegido == "Últimos 7 días":
+            desde = hoy - timedelta(days=6)
+        elif elegido == "Últimos 30 días":
+            desde = hoy - timedelta(days=29)
+        elif elegido == "Todo":
+            desde, hasta = (rango["desde"] or hoy), max(rango["hasta"] or hoy, hoy)
+    ids_caf = tuple(int(i) for i in caf.id_cafeteria) or (-1,)
+    if varias:
+        with next(cols):
+            opciones = ["Todas"] + caf.nombre.tolist()
+            if st.session_state.get("f_caf") not in opciones:
+                st.session_state["f_caf"] = "Todas"
+            nombre = st.selectbox("Cafetería", opciones, key="f_caf")
+        if nombre != "Todas":
+            ids_caf = tuple(int(i) for i in caf[caf.nombre == nombre].id_cafeteria)
+    solo_pico = False
+    if pico:
+        with next(cols):
+            solo_pico = st.toggle("Solo horas pico", key="f_pico",
+                                  help="Cambio de clase y almuerzo: las franjas donde se mide la meta (RN-05).")
+    franjas = fr[fr.es_hora_pico] if solo_pico else fr
+    ids_fr = tuple(int(i) for i in franjas.id_franja) or (-1,)
+    return {"desde": desde, "hasta": hasta, "cafeterias": ids_caf, "franjas": ids_fr,
+            "una_cafeteria": len(ids_caf) == 1}
+
+
+def recordar_filtros() -> None:
+    """Streamlit borra el valor de un filtro cuando se cambia a una página que no lo muestra;
+    volver a asignarlo en cada ejecución hace que se conserve entre páginas."""
+    for k in CLAVES_FILTROS:
+        if k in st.session_state:
+            st.session_state[k] = st.session_state[k]
+
+
+def contadores(items: list[tuple[str, str, str]]) -> None:
+    """Números grandes y simples: [(título, valor, nota), ...]."""
+    html = "".join(f"<div class='contador'><div class='contador-nombre'>{escape(t)}</div>"
+                   f"<div class='contador-valor'>{escape(v)}</div><div class='contador-nota'>{escape(n)}</div></div>"
+                   for t, v, n in items)
+    st.markdown(f"<div class='fila-contadores'>{html}</div>", unsafe_allow_html=True)
+
+
+def subtitulo(texto: str, ayuda: str = "") -> None:
+    extra = f"<p>{escape(ayuda)}</p>" if ayuda else ""
+    st.markdown(f"<div class='sub'><h3>{escape(texto)}</h3>{extra}</div>", unsafe_allow_html=True)
+
+
+def pesos(valor: float) -> str:
+    return f"${valor:,.0f}".replace(",", ".")
+
+
+def miles(valor: int) -> str:
+    return f"{valor:,}".replace(",", ".")
 
 
 def _formato(valor, unidad: str) -> str:
@@ -114,7 +155,7 @@ def grafico(fig, tabla: pd.DataFrame | None = None, alto: int = 340, clave: str 
             st.dataframe(tabla, use_container_width=True, hide_index=True)
 
 
-def sin_datos(mensaje: str = "No hay datos para los filtros elegidos.") -> None:
+def sin_datos(mensaje: str = "No hay datos para este periodo. Prueba con un periodo más largo u otra cafetería.") -> None:
     st.info(mensaje, icon="ℹ️")
 
 

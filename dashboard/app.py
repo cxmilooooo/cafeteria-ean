@@ -2,7 +2,8 @@
 
 Ejecutar:  streamlit run app.py
 Agregar una página: crear un archivo en paginas/ con la estructura de
-paginas/_plantilla_pagina.py y registrarlo en la lista PAGINAS de abajo.
+paginas/_plantilla_pagina.py y registrarlo en la lista PAGINAS de abajo
+(procuren no pasar de 3 o 4 páginas: el coordinador debe entender todo en segundos).
 """
 import hmac
 import os
@@ -29,19 +30,11 @@ if CLAVE and not st.session_state.get("autenticado"):
                 st.error("Contraseña incorrecta")
     st.stop()
 
-PAGINAS = {
-    "Indicadores": [
-        st.Page("paginas/resumen.py", url_path="resumen", title="Resumen de KPI", icon="📊", default=True),
-        st.Page("paginas/operacion.py", url_path="operacion", title="Operación en vivo", icon="🟢"),
-        st.Page("paginas/analisis.py", url_path="analisis", title="Franjas, canales y productos", icon="🔎"),
-    ],
-    "Analítica": [
-        st.Page("paginas/demanda.py", url_path="demanda", title="Demanda esperada", icon="📈"),
-        st.Page("paginas/calidad.py", url_path="calidad", title="Reclamos, alertas y continuidad", icon="🛡️"),
-    ],
-    "Coordinador": [
-        st.Page("paginas/administracion.py", url_path="administracion", title="Menú y código QR", icon="⚙️"),
-    ],
-}
+# Solo tres páginas, en la barra de arriba. Para agregar una, ver paginas/_plantilla_pagina.py
+PAGINAS = [
+    st.Page("paginas/hoy.py", url_path="hoy", title="Hoy", icon="🟢", default=True),
+    st.Page("paginas/indicadores.py", url_path="indicadores", title="Indicadores", icon="📊"),
+    st.Page("paginas/administracion.py", url_path="administracion", title="Administración", icon="⚙️"),
+]
 
-st.navigation(PAGINAS).run()
+st.navigation(PAGINAS, position="top").run()

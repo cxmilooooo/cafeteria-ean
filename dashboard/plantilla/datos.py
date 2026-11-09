@@ -59,6 +59,67 @@ def detalle(desde: date, hasta: date, cafeterias: tuple, franjas: tuple) -> pd.D
         d=desde, h=hasta, c=list(cafeterias), f=list(franjas))
 
 
+def pedidos_hoy(cafeterias: tuple) -> pd.DataFrame:
+    """Pedidos del día en curso, sin caché (la página "Hoy" se refresca cada 30 s)."""
+    df = consulta(
+        """SELECT * FROM v_pedidos
+            WHERE fecha = (now() AT TIME ZONE 'America/Bogota')::date AND id_cafeteria = ANY(:c)""",
+        c=list(cafeterias))
+    for col in ("min_espera_fila", "min_atencion", "min_preparacion", "valor_total"):
+        df[col] = pd.to_numeric(df[col], errors="coerce")
+    return df
+
+
+def alertas_hoy(cafeterias: tuple) -> pd.DataFrame:
+    return consulta(
+        """SELECT to_char(a.fecha_hora, 'HH24:MI') AS "Hora", coalesce(c.nombre, 'General') AS "Cafetería",
+                  a.tipo AS "Tipo", a.mensaje AS "Mensaje"
+             FROM alerta a LEFT JOIN cafeteria c ON c.id_cafeteria = a.id_cafeteria
+            WHERE a.fecha_hora::date = (now() AT TIME ZONE 'America/Bogota')::date
+              AND (a.id_cafeteria IS NULL OR a.id_cafeteria = ANY(:c))
+            ORDER BY a.fecha_hora DESC LIMIT 30""", c=list(cafeterias))
+
+
+@st.cache_data(ttl=30)
+def reclamos(desde: date, hasta: date, cafeterias: tuple) -> pd.DataFrame:
+    return consulta(
+        """SELECT r.fecha_hora, c.nombre AS cafeteria, r.id_pedido, r.tipo_reclamo, r.descripcion, r.estado
+             FROM reclamo r JOIN pedido p ON p.id_pedido = r.id_pedido
+             JOIN cafeteria c ON c.id_cafeteria = p.id_cafeteria
+            WHERE r.fecha_hora::date BETWEEN :d AND :h AND p.id_cafeteria = ANY(:c)
+            ORDER BY r.fecha_hora DESC""", d=desde, h=hasta, c=list(cafeterias))
+
+
+def estado_sistema() -> dict:
+    """Último respaldo (RPO 5 min) y último latido del monitoreo de n8n."""
+    fila = consulta(
+        """SELECT (SELECT EXTRACT(EPOCH FROM (now() AT TIME ZONE 'America/Bogota') - max(fecha_hora)) / 60
+                     FROM respaldo_log) AS min_respaldo,
+                  (SELECT estado FROM monitoreo ORDER BY id DESC LIMIT 1) AS monitoreo,
+                  (SELECT to_char(fecha_hora, 'HH24:MI') FROM monitoreo ORDER BY id DESC LIMIT 1) AS hora_monitoreo""")
+    r = fila.iloc[0].to_dict()
+    r["min_respaldo"] = None if pd.isna(r["min_respaldo"]) else float(r["min_respaldo"])
+    return r
+
+
+# --- Administración (menú y personal) -------------------------------------------
+def menu() -> pd.DataFrame:
+    df = consulta("SELECT id_producto, nombre, categoria, precio, disponible FROM producto ORDER BY categoria, nombre")
+    df["precio"] = df.precio.astype(float)
+    return df
+
+
+def empleados() -> pd.DataFrame:
+    """Personal sin el hash del PIN: solo si tiene PIN y si está bloqueado."""
+    return consulta(
+        """SELECT e.id_empleado, e.id_cafeteria, c.nombre AS cafeteria, e.nombre, e.rol, e.activo,
+                  e.pin_hash IS NOT NULL AS tiene_pin,
+                  CASE WHEN e.bloqueado_hasta > (now() AT TIME ZONE 'America/Bogota')
+                       THEN to_char(e.bloqueado_hasta, 'HH24:MI') END AS bloqueado_hasta
+             FROM empleado e JOIN cafeteria c ON c.id_cafeteria = e.id_cafeteria
+            ORDER BY e.id_cafeteria, e.activo DESC, e.nombre""")
+
+
 def horas_pico_por_dia() -> float:
     fr = catalogos()["franjas"]
     pico = fr[fr.es_hora_pico]
