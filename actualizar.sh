@@ -6,6 +6,13 @@ cd "$(dirname "$0")" || exit 1
 echo "[..] Bajando la última versión..."
 git pull --ff-only || { echo "[X] git pull falló (¿cambiaste archivos a mano?). Revisa con: git status"; exit 1; }
 
+# Instalaciones anteriores: crear la clave del local para las pantallas del personal
+if ! grep -q '^CLAVE_PERSONAL=' .env 2>/dev/null; then
+  printf '\n# Clave del local para las pantallas del personal (usuario: personal)\nCLAVE_PERSONAL=%s\n' \
+    "$(LC_ALL=C tr -dc 'a-z0-9' </dev/urandom | head -c 8)" >> .env
+  nueva_clave_local=si
+fi
+
 echo "[..] Reconstruyendo y levantando..."
 docker compose up -d --build || exit 1
 
@@ -29,3 +36,5 @@ until curl -sf "http://localhost:8080/api/catalogo?id_cafeteria=1" >/dev/null 2>
   sleep 3
 done
 echo "[OK] Actualizado. Recarga las páginas abiertas (caja, cocina, dashboard)."
+echo "     Pantallas del personal: http://localhost:8080/personal/  · usuario: personal · clave: $(grep -E '^CLAVE_PERSONAL=' .env | cut -d= -f2)"
+[ "$nueva_clave_local" = si ] && echo "     (Clave del local NUEVA: anótala; también está en el archivo .env)"

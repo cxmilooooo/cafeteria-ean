@@ -3,61 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Cafetería EAN · Sistema de pedidos</title>
-<link rel="stylesheet" href="estilos.css">
-<style>
-  main { max-width: 1000px; }
-  .pregunta { font-size: 1.3rem; font-weight: 700; margin: 8px 0 16px; text-align: center; }
-  .sedes { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
-  .sedes button[aria-pressed="true"] { background: var(--acento-suave); border-color: var(--acento); color: var(--acento); font-weight: 700; }
-  .pie-portal { text-align: center; margin-top: 28px; font-size: .9rem; }
-  .pie-portal a { color: var(--texto-suave); }
-</style>
+<title>Cafetería EAN · Pedir</title>
+<meta http-equiv="refresh" content="0; url=pedido.html?cafeteria=1">
 </head>
-<body>
-<header class="barra"><h1>Cafetería EAN<small>Sistema de pedidos</small></h1></header>
-<main>
-  <p class="pregunta">¿Qué vas a hacer?</p>
-  <div class="sedes" id="sedes"></div>
-  <div class="roles">
-    <a class="rol" data-pagina="pedido.html"><span class="icono" aria-hidden="true">📱</span><strong>Pedir (cliente)</strong><span class="suave">Elige tus productos y recibe tu turno.</span></a>
-    <a class="rol" data-pagina="mostrador.html" style="grid-column:1 / -1;border-color:var(--acento)"><span class="icono" aria-hidden="true">🧑‍🍳</span><strong>Mostrador (recomendado)</strong><span class="suave">Todo en una pantalla: cobrar, preparar y entregar. Ideal para 1 o 2 personas.</span></a>
-    <a class="rol" data-pagina="caja.html"><span class="icono" aria-hidden="true">🧾</span><strong>Solo caja</strong><span class="suave">Si una persona solo cobra.</span></a>
-    <a class="rol" data-pagina="cocina.html"><span class="icono" aria-hidden="true">👩‍🍳</span><strong>Solo cocina</strong><span class="suave">Si una persona solo prepara y entrega.</span></a>
-    <a class="rol" data-pagina="turnos.html"><span class="icono" aria-hidden="true">📺</span><strong>Pantalla de turnos</strong><span class="suave">Muestra quién puede recoger su pedido.</span></a>
-  </div>
-  <p class="pie-portal">Coordinador: <a id="lnk-dash" href="#">dashboard</a> · <a id="lnk-n8n" href="#">flujos (n8n)</a></p>
-</main>
-<script src="comun.js"></script>
-<script>
-  const h = location.hostname;
-  $('#lnk-dash').href = `http://${h}:8501`;
-  $('#lnk-n8n').href = `http://${h}:5679`;
-  let sede = parametro('cafeteria', null);
-  try { sede ??= localStorage.getItem('cafeteria_sede'); } catch (e) {}
-  sede ??= '1';
-  function enlazar() {
-    document.querySelectorAll('a.rol').forEach(a => a.href = `${a.dataset.pagina}?cafeteria=${encodeURIComponent(sede)}`);
-    document.querySelectorAll('#sedes button').forEach(b => b.setAttribute('aria-pressed', b.dataset.sede === sede));
-  }
-  enlazar();
-  // Si hay varias cafeterías, se elige una vez y queda recordada en este equipo
-  cargarCatalogo(sede).then(c => {
-    // Si la cafetería recordada ya no existe, se usa la primera
-    if (!c.cafeterias.some(x => String(x.id_cafeteria) === String(sede))) {
-      sede = String(c.cafeterias[0]?.id_cafeteria ?? 1);
-      try { localStorage.setItem('cafeteria_sede', sede); } catch (e) {}
-      enlazar();
-    }
-    if (c.cafeterias.length < 2) return;
-    $('#sedes').innerHTML = c.cafeterias.map(x => `<button data-sede="${esc(x.id_cafeteria)}">${esc(x.nombre)}</button>`).join('');
-    $('#sedes').onclick = e => {
-      const b = e.target.closest('button'); if (!b) return;
-      sede = b.dataset.sede; try { localStorage.setItem('cafeteria_sede', sede); } catch (e) {}
-      enlazar();
-    };
-    enlazar();
-  }).catch(() => {});
-</script>
-</body>
+<body><p><a href="pedido.html?cafeteria=1">Hacer un pedido</a></p></body>
 </html>

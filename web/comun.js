@@ -1,5 +1,6 @@
 // Utilidades compartidas: llamadas a n8n, formato y lectura de parámetros.
-const API = '/api';
+// El personal usa /personal/api (protegido con la clave del local); el cliente solo /api
+const API = location.pathname.startsWith('/personal/') ? '/personal/api' : '/api';
 
 async function api(ruta, datos) {
   const opciones = datos === undefined

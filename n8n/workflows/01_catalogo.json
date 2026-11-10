@@ -12,7 +12,7 @@
         -260
       ],
       "parameters": {
-        "content": "## 01 · Catálogo y menú\n`GET /webhook/catalogo?id_cafeteria=1`\n\nDevuelve cafeterías, personal activo y el menú con precio y **disponibilidad actualizada** (RF-03). Lo usan las páginas de cliente, caja y cocina.",
+        "content": "## 01 · Catálogo y menú\n`GET /webhook/catalogo?id_cafeteria=1`\n\nDevuelve cafeterías, el menú y (solo para las pantallas del personal) la lista de personal activo, con precio y **disponibilidad actualizada** (RF-03). Lo usan las páginas de cliente, caja y cocina.",
         "width": 380,
         "height": 300,
         "color": 7
@@ -50,7 +50,7 @@
         "operation": "executeQuery",
         "query": "SELECT api_catalogo($1::jsonb) AS r",
         "options": {
-          "queryReplacement": "={{ JSON.stringify($json.query) }}"
+          "queryReplacement": "={{ JSON.stringify({ ...$json.query, incluir_personal: $json.headers['x-personal'] === 'si' }) }}"
         }
       },
       "credentials": {

@@ -120,10 +120,11 @@ w.save("00_manejo_errores.json")
 
 # ---------------------------------------------------------------- 01 catálogo
 w = WF("CafeEAN01Catalog", "01 · Catálogo y menú (RF-03)",
-       "## 01 · Catálogo y menú\n`GET /webhook/catalogo?id_cafeteria=1`\n\nDevuelve cafeterías, personal activo y el menú con "
+       "## 01 · Catálogo y menú\n`GET /webhook/catalogo?id_cafeteria=1`\n\nDevuelve cafeterías, el menú y (solo para las pantallas del personal) la lista de personal activo, con "
        "precio y **disponibilidad actualizada** (RF-03). Lo usan las páginas de cliente, caja y cocina.")
 h = w.webhook("GET /catalogo", "GET", "catalogo", [0, 0])
-p = w.pg("Leer catálogo", "SELECT api_catalogo($1::jsonb) AS r", [240, 0], "={{ JSON.stringify($json.query) }}")
+p = w.pg("Leer catálogo", "SELECT api_catalogo($1::jsonb) AS r", [240, 0],
+         "={{ JSON.stringify({ ...$json.query, incluir_personal: $json.headers['x-personal'] === 'si' }) }}")
 r = w.respond("Responder catálogo", R, 200, [480, 0])
 w.link(h, p); w.link(p, r)
 w.save("01_catalogo.json")

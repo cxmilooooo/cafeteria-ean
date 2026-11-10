@@ -3,6 +3,7 @@ rem Actualiza una instalacion existente a la ultima version de GitHub SIN borrar
 cd /d "%~dp0"
 echo [..] Bajando la ultima version...
 git pull --ff-only || ( echo [X] git pull fallo. Revisa con: git status & pause & exit /b 1 )
+findstr /b "CLAVE_PERSONAL=" .env >nul 2>nul || powershell -NoProfile -Command "$l = -join ((48..57)+(97..122) | Get-Random -Count 8 | %% {[char]$_}); Add-Content .env ('CLAVE_PERSONAL=' + $l)"
 echo [..] Reconstruyendo y levantando...
 docker compose up -d --build || ( pause & exit /b 1 )
 echo [..] Esperando la base de datos...
@@ -22,4 +23,5 @@ echo [..] Esperando a n8n...
 timeout /t 3 /nobreak >nul
 curl -sf "http://localhost:8080/api/catalogo?id_cafeteria=1" >nul 2>nul || goto espera_n8n
 echo [OK] Actualizado. Recarga las paginas abiertas (caja, cocina, dashboard).
+for /f "tokens=1,* delims==" %%a in ('findstr /b "CLAVE_PERSONAL=" .env') do echo      Pantallas del personal: http://localhost:8080/personal/  usuario: personal  clave: %%b
 pause

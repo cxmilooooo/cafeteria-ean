@@ -3,10 +3,12 @@
 # (ese archivo no se sube a GitHub). Lo ejecuta el instalador la primera vez.
 cd "$(dirname "$0")/.." || exit 1
 clave=$(grep -E '^DASHBOARD_PASSWORD=' .env | cut -d= -f2)
+local_=$(grep -E '^CLAVE_PERSONAL=' .env | cut -d= -f2)
 {
   echo "CREDENCIALES DE LA CAFETERÍA (guárdalas y no las compartas)"
   echo "Generadas: $(date '+%Y-%m-%d %H:%M')"
   echo ""
+  echo "Pantallas del personal (http://IP:8080/personal/): usuario personal · clave $local_"
   echo "Dashboard del coordinador (http://localhost:8501): $clave"
   echo ""
   echo "PIN del personal (cámbialos o agrega personas en Dashboard → Administración → Personal):"

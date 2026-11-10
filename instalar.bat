@@ -24,7 +24,7 @@ if errorlevel 1 (
 set primera_vez=no
 if not exist ".env" (
   copy ".env.example" ".env" >nul
-  powershell -NoProfile -Command "$c = -join ((48..57)+(97..122) | Get-Random -Count 10 | %% {[char]$_}); (Get-Content .env) -replace '^DASHBOARD_PASSWORD=.*', ('DASHBOARD_PASSWORD=' + $c) | Set-Content .env -Encoding ascii"
+  powershell -NoProfile -Command "$c = -join ((48..57)+(97..122) | Get-Random -Count 10 | %% {[char]$_}); $l = -join ((48..57)+(97..122) | Get-Random -Count 8 | %% {[char]$_}); (Get-Content .env) -replace '^DASHBOARD_PASSWORD=.*', ('DASHBOARD_PASSWORD=' + $c) -replace '^CLAVE_PERSONAL=.*', ('CLAVE_PERSONAL=' + $l) | Set-Content .env -Encoding ascii"
   set primera_vez=si
   echo  [OK] Archivo .env creado con una clave nueva para el dashboard.
 )
@@ -62,7 +62,9 @@ if not exist credenciales.txt goto credenciales
 goto fin_credenciales
 :credenciales
 for /f "tokens=1,* delims==" %%a in ('findstr /b "DASHBOARD_PASSWORD=" .env') do set clave=%%b
+for /f "tokens=1,* delims==" %%a in ('findstr /b "CLAVE_PERSONAL=" .env') do set clavelocal=%%b
 > credenciales.txt echo CREDENCIALES DE LA CAFETERIA (guardalas y no las compartas)
+>> credenciales.txt echo Pantallas del personal (http://IP:8080/personal/): usuario personal, clave %clavelocal%
 >> credenciales.txt echo Dashboard del coordinador (http://localhost:8501): %clave%
 >> credenciales.txt echo PIN del personal (cambialos en Dashboard - Administracion - Personal):
 docker compose exec -T postgres psql -qtA -F " - " -U cafeteria -d cafeteria -c "WITH n AS (SELECT id_empleado, nombre, rol, lpad(floor(random() * 10000)::int::text, 4, '0') AS pin FROM empleado WHERE activo), u AS (UPDATE empleado e SET pin_hash = crypt(n.pin, gen_salt('bf')), intentos_fallidos = 0, bloqueado_hasta = NULL FROM n WHERE e.id_empleado = n.id_empleado RETURNING n.nombre, n.rol, n.pin) SELECT nombre, rol, 'PIN ' || pin FROM u ORDER BY rol, nombre" >> credenciales.txt
@@ -76,7 +78,8 @@ echo.
 echo  ==============================================
 echo   LISTO. Se abriran las paginas en el navegador.
 echo  ==============================================
-echo   Portal (cliente, caja, cocina, turnos): http://localhost:8080
+echo   Pantallas del personal: http://localhost:8080/personal/   (usuario personal)
+echo   Clientes (lo que abre el QR): http://localhost:8080/
 echo   Dashboard de KPI:                        http://localhost:8501
 echo   n8n (editar los flujos):                 http://localhost:5679
 echo   Claves y PIN del personal: abre el archivo credenciales.txt de esta carpeta
@@ -84,6 +87,6 @@ start "" credenciales.txt
 echo.
 echo   Para apagar:  docker compose down
 echo.
-start "" http://localhost:8080
+start "" http://localhost:8080/personal/
 start "" http://localhost:8501
 pause

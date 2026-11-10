@@ -11,6 +11,8 @@ if [ ! -f .env ]; then
   # Clave del dashboard aleatoria (no la publicada en GitHub)
   clave=$(LC_ALL=C tr -dc 'a-z0-9' </dev/urandom | head -c 10)
   sed -i.bak "s|^DASHBOARD_PASSWORD=.*|DASHBOARD_PASSWORD=${clave}|" .env && rm -f .env.bak
+  local_=$(LC_ALL=C tr -dc 'a-z0-9' </dev/urandom | head -c 8)
+  sed -i.bak "s|^CLAVE_PERSONAL=.*|CLAVE_PERSONAL=${local_}|" .env && rm -f .env.bak
   primera_vez=si
   echo "[OK] Archivo .env creado con una clave nueva para el dashboard."
 fi
@@ -50,12 +52,13 @@ fi
 cat <<'FIN'
 
 LISTO
-  Portal (cliente, caja, cocina, turnos): http://localhost:8080
+  Pantallas del personal (Mostrador, caja, cocina, turnos): http://localhost:8080/personal/
+  Clientes (lo que abre el QR):           http://localhost:8080/
   Desde los celulares (misma red Wi-Fi):   ver URL_PUBLICA en .env · QR en Dashboard → Menú y código QR
   Dashboard de KPI:                        http://localhost:8501
   n8n (editar los flujos):                 http://localhost:5679
   Claves y PIN del personal: abre el archivo credenciales.txt de esta carpeta
   Para apagar: docker compose down
 FIN
-if command -v open >/dev/null 2>&1; then open http://localhost:8080; open http://localhost:8501
-elif command -v xdg-open >/dev/null 2>&1; then xdg-open http://localhost:8080; xdg-open http://localhost:8501; fi
+if command -v open >/dev/null 2>&1; then open http://localhost:8080/personal/; open http://localhost:8501
+elif command -v xdg-open >/dev/null 2>&1; then xdg-open http://localhost:8080/personal/; xdg-open http://localhost:8501; fi

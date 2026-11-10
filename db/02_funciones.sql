@@ -89,7 +89,9 @@ BEGIN
         'cafeterias', (SELECT coalesce(jsonb_agg(to_jsonb(c) ORDER BY id_cafeteria), '[]') FROM cafeteria c),
         'empleados',  (SELECT coalesce(jsonb_agg(jsonb_build_object('id_empleado', id_empleado, 'nombre', nombre,
                                      'rol', rol, 'id_cafeteria', id_cafeteria) ORDER BY nombre), '[]')
-                       FROM empleado WHERE activo AND (v_caf IS NULL OR id_cafeteria = v_caf)),
+                       FROM empleado WHERE activo AND (v_caf IS NULL OR id_cafeteria = v_caf)
+                        -- la lista de personal solo va a las pantallas del personal (nginx pone X-Personal)
+                        AND coalesce((p->>'incluir_personal')::boolean, false)),
         'productos',  (SELECT coalesce(jsonb_agg(jsonb_build_object('id_producto', id_producto, 'nombre', nombre,
                                      'categoria', categoria, 'precio', precio, 'disponible', disponible)
                                      ORDER BY categoria, nombre), '[]')

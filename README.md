@@ -51,21 +51,26 @@ Cuando termine:
 
 | Qué | Dirección |
 |---|---|
-| Portal con todas las páginas | http://localhost:8080 |
-| Pedido del cliente (lo que abre el QR) | http://localhost:8080/pedido.html?cafeteria=1 |
-| Caja (registrar y **autorizar** pedidos) | http://localhost:8080/caja.html |
-| Cocina y barra | http://localhost:8080/cocina.html |
-| Pantalla de turnos (TV: número + nombre) | http://localhost:8080/turnos.html |
+| **Clientes** (lo que abre el QR): solo pueden pedir | http://localhost:8080/ |
+| **Personal**: portal con Mostrador, caja, cocina y pantalla de turnos | http://localhost:8080/personal/ |
 | **Dashboard de KPI (Python)** | http://localhost:8501 |
 | n8n (ver y editar los flujos) | http://localhost:5679 |
 
 En n8n, la primera vez se pide crear un usuario dueño (correo y contraseña locales, no se
 envían a ningún lado). Los flujos ya aparecen importados y activos.
 
+### Clientes y personal están separados
+
+- Los **clientes** solo llegan a la página de pedir (la dirección principal y el QR). Desde ahí solo pueden ver
+  el menú, hacer su pedido y seguirlo: no ven ni pueden llamar las pantallas o acciones del personal.
+- Las **pantallas del personal** están en `/personal/` y piden la **clave del local** (usuario `personal`)
+  antes de cargar. El navegador de cada equipo del personal la pide una vez y la recuerda. Después, cada
+  persona entra con su PIN.
+
 ### Claves y PIN
 
-La primera instalación genera **una clave aleatoria para el dashboard y un PIN aleatorio para cada
-empleado**, y los guarda en el archivo **`credenciales.txt`** de la carpeta del proyecto (ese archivo no se
+La primera instalación genera **la clave del local, una clave para el dashboard y un PIN para cada
+empleado**, todos aleatorios, y los guarda en el archivo **`credenciales.txt`** de la carpeta del proyecto (ese archivo no se
 sube a GitHub). Personal de ejemplo: Laura Gómez (caja), Andrés Rojas y Paola Martínez (cocina) y Carlos
 Ruiz (coordinador). Reemplácenlos por su personal real en **Dashboard → Administración → Personal**.
 

@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Mostrador · Cafetería EAN</title>
-<link rel="stylesheet" href="estilos.css">
+<title>Caja · Cafetería EAN</title>
+<link rel="stylesheet" href="../estilos.css">
 <style>
   header.barra { padding: 8px 16px; }
   header.barra h1 { min-width: 0; }
@@ -30,37 +30,7 @@
   .qr button { width: 100%; margin-top: 4px; }
 
   /* Pedido nuevo */
-  .zona { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr) 300px 380px; align-items: start; }
-  .cocina { display: flex; flex-direction: column; gap: 14px; }
-  .cocina .comandas { grid-template-columns: 1fr !important; }
-  .cocina .comanda .num { font-size: 1.8rem; }
-  @media (max-width: 1250px) { .zona { grid-template-columns: minmax(0, 1fr) 300px; } .cocina { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr 1fr; } }
-  .cocina h2 { font-size: 1.15rem; display: flex; align-items: center; gap: 8px; }
-  .cocina .cuenta { background: var(--fondo); border: 1px solid var(--borde); border-radius: 99px; padding: 0 10px; font-size: .95rem; }
-  .cocina .comandas { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); }
-  .listos .cocina .comandas { grid-template-columns: 1fr; }
-
-  .comanda { margin: 0; display: flex; flex-direction: column; gap: 6px; border-width: 2px; border-left-width: 6px; }
-  .comanda .cab { display: flex; align-items: center; gap: 8px; }
-  .comanda .num { font-size: 2.2rem; line-height: 1; }
-  .comanda .quien { font-weight: 700; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .comanda ul { margin: 0; padding-left: 0; list-style: none; font-size: 1.05rem; flex: 1; }
-  .comanda li { padding: 2px 0; }
-  .comanda li b { font-variant-numeric: tabular-nums; }
-  .comanda .nota { font-weight: 600; }
-  .comanda.pagado { cursor: pointer; }
-  .comanda.preparando { border-left-color: var(--alerta); }
-  .comanda.antigua { border-color: var(--peligro); background: var(--alerta-suave); }
-  .comanda .pista { font-size: .8rem; color: var(--texto-suave); }
-  .comanda button.listo { width: 100%; font-size: 1.3rem; min-height: 60px; }
-  .listos .comanda { border-left-color: var(--listo); flex-direction: row; align-items: center; gap: 12px; }
-  .listos .comanda .num { font-size: 2.6rem; color: var(--listo); min-width: 1.6em; text-align: center; }
-  .listos .comanda .info { flex: 1; min-width: 0; }
-  .listos .comanda .quien { display: block; font-size: 1.15rem; }
-  .listos .comanda button { min-height: 56px; font-size: 1.1rem; padding: 10px 16px; }
-  .vacio { color: var(--texto-suave); padding: 24px 8px; text-align: center; grid-column: 1 / -1; margin: 0; }
-  .dialogo .medios button[data-si] { justify-content: center; }
-  .dialogo .turno-confirmar { font-size: 4rem; font-weight: 800; color: var(--acento); line-height: 1.1; text-align: center; }
+  .zona { display: grid; gap: 14px; grid-template-columns: 1fr 340px; align-items: start; }
   .menu .categoria { margin: 10px 0 6px; }
   .menu .categoria:first-child { margin-top: 0; }
   .prods { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
@@ -105,7 +75,7 @@
 </head>
 <body>
 <header class="barra">
-  <h1>🧑‍🍳 Mostrador <small style="display:inline;font-size:.8rem;color:var(--texto-suave);font-weight:400">cobrar · preparar · entregar</small></h1>
+  <h1>🧾 Caja</h1>
   <div class="extra">
     <button class="secundario" id="btn-se-va" title="El cliente estaba en la fila y se fue sin pedir">🚶 Se fue sin pedir</button>
     <button class="secundario" id="btn-reclamo">⚠️ Reclamo</button>
@@ -132,22 +102,10 @@
       </div>
       <div id="msg-pedido" class="mensaje oculto"></div>
     </aside>
-
-    <div class="cocina">
-      <section class="tarjeta columna">
-        <h2>🔥 Por preparar <span class="cuenta" id="n-prep">0</span></h2>
-        <div id="msg" class="mensaje oculto"></div>
-        <div class="comandas" id="col-prep"></div>
-      </section>
-      <section class="tarjeta columna listos">
-        <h2>✅ Listos para entregar <span class="cuenta" id="n-listo">0</span></h2>
-        <div class="comandas" id="col-listo"></div>
-      </section>
-    </div>
   </div>
 </main>
 
-<script src="comun.js"></script>
+<script src="../comun.js"></script>
 <script>
 let idCaf = parametro('cafeteria', '1');
 let productos = [], carrito = {}, llegada = null, sesion = null;
@@ -286,7 +244,7 @@ $('#btn-cobrar').onclick = async () => {
     }
     const a = await llamar('autorizar', { id_pedido: creado.id_pedido, medio_pago: medio, ...firma() });
     if (!a.ok) { cargarPendientes(); return { ok: false, mensaje: `Turno ${creado.numero_turno} registrado, pero no se pudo cobrar: ${a.mensaje}` }; }
-    aviso(`Turno ${a.numero_turno ?? creado.numero_turno} · ${a.cliente ?? nombre} → a preparar`); cargarCola();
+    aviso(`Turno ${a.numero_turno ?? creado.numero_turno} · ${a.cliente ?? nombre} → enviado a cocina`);
     cargarPendientes();
     return a;
   });
@@ -328,7 +286,7 @@ $('#pendientes').addEventListener('click', e => {
     total: p.valor_total, items: listaItems(p.items || [])
   }, async medio => {
     const a = await llamar('autorizar', { id_pedido: p.id_pedido, medio_pago: medio, ...firma() });
-    if (a.ok) { aviso(`Turno ${a.numero_turno ?? p.numero_turno} · ${a.cliente ?? p.cliente} → a preparar`); setTimeout(cargarPendientes, 0); cargarCola(); }
+    if (a.ok) { aviso(`Turno ${a.numero_turno ?? p.numero_turno} · ${a.cliente ?? p.cliente} → enviado a cocina`); setTimeout(cargarPendientes, 0); }
     return a;
   });
 });
@@ -393,155 +351,11 @@ $('#btn-reclamo').onclick = () => {
   };
 };
 
-let cola = [], vistosCola = null;
-const ocupados = new Set();          // pedidos con una llamada en curso
-const MIN_ANTIGUA = 8;
-let ultimoHtmlCola = '';
-
-const cambiarEstado = async (id, estado, extra = {}) =>
-  revisarSesion(await api('estado', { id_pedido: id, estado, id_empleado: sesion.id_empleado, pin: sesion.pin, ...extra }), 'caja', idCaf);
-
-function comanda(p) {
-  const t = Math.floor(Number(p.minutos_desde_pago) || 0);
-  const items = (p.items || []).map(i => `<li><b>${esc(i.cantidad)}×</b> ${esc(i.producto)}${i.observaciones ? `<div class="nota">⚠ ${esc(i.observaciones)}</div>` : ''}</li>`).join('');
-  const id = esc(p.id_pedido), ocupado = ocupados.has(p.id_pedido) ? 'disabled' : '';
-  const tiempo = `<span class="tiempo ${t > MIN_ANTIGUA ? 'alto' : t > 5 ? 'medio' : ''}">${t < 1 ? 'recién' : `${t} min`}</span>`;
-  if (p.estado === 'Listo') {
-    return `<div class="comanda" data-pedido="${id}">
-      <span class="num">#${esc(p.numero_turno)}</span>
-      <div class="info"><span class="quien">${esc(p.cliente)}</span><span class="suave">${(p.items || []).length} producto(s) · ${esc(p.id_pedido)}</span></div>
-      <div style="display:flex;flex-direction:column;gap:4px;align-items:stretch">
-        <button class="primario" data-entregar="${id}" ${ocupado}>Entregar</button>
-        <button class="enlace" data-novino="${id}" ${ocupado} title="El cliente no vino a recogerlo">No vino</button></div></div>`;
-  }
-  const preparando = p.estado === 'En preparación';
-  return `<div class="comanda ${preparando ? 'preparando' : 'pagado'} ${t > MIN_ANTIGUA ? 'antigua' : ''}" data-pedido="${id}"
-      ${preparando ? '' : 'title="Toca la comanda para marcarla en preparación (opcional)"'}>
-    <div class="cab"><span class="num">#${esc(p.numero_turno)}</span><span class="quien">${esc(p.cliente)}</span>${tiempo}</div>
-    <div class="pista">${preparando ? '🔥 En preparación' : 'Nuevo · toca para empezar'}</div>
-    <ul>${items}</ul>
-    <button class="primario listo" data-listo="${id}" ${ocupado}>${ocupado ? 'Guardando…' : '✓ Listo'}</button></div>`;
-}
-
-function pintarCola() {
-  if (hayDialogoAbierto()) return;
-  const prep = cola.filter(p => p.estado === 'Pagado' || p.estado === 'En preparación');
-  const listos = cola.filter(p => p.estado === 'Listo');
-  const html = prep.map(comanda).join('') + '|' + listos.map(comanda).join('');
-  if (html === ultimoHtmlCola) return;
-  ultimoHtmlCola = html;
-  $('#n-prep').textContent = prep.length;
-  $('#n-listo').textContent = listos.length;
-  $('#col-prep').innerHTML = prep.map(comanda).join('') || '<p class="vacio">No hay pedidos por preparar 👌</p>';
-  $('#col-listo').innerHTML = listos.map(comanda).join('') || '<p class="vacio">Nada para entregar</p>';
-}
-
-async function cargarCola() {
-  const r = await api(`cola?id_cafeteria=${idCaf}`);
-  if (!r.ok) return mostrarMensaje($('#msg'), r.mensaje);
-  $('#msg').classList.add('oculto');
-  cola = r.pedidos;
-  const nuevos = cola.filter(p => p.estado === 'Pagado').map(p => p.id_pedido);
-  if (vistosCola && nuevos.some(id => !vistosCola.has(id))) campana();
-  vistosCola ??= new Set();
-  cola.forEach(p => vistosCola.add(p.id_pedido));
-  pintarCola();
-}
-
-async function trabajar(id, fn) {
-  if (!sesion || ocupados.has(id)) return;
-  ocupados.add(id); ultimoHtmlCola = ''; pintarCola();
-  try { await fn(); } finally { ocupados.delete(id); ultimoHtmlCola = ''; await cargarCola(); }
-}
-
-// «✓ Listo»: hace las transiciones necesarias (Pagado → En preparación → Listo)
-async function marcarListo(id) {
-  await trabajar(id, async () => {
-    const p = cola.find(x => x.id_pedido === id);
-    if (p?.estado === 'Pagado') {
-      const r = await cambiarEstado(id, 'En preparación');
-      if (!r.ok) return mostrarMensaje($('#msg'), r.mensaje);
-    }
-    const r = await cambiarEstado(id, 'Listo');
-    if (!r.ok) return mostrarMensaje($('#msg'), r.mensaje);
-    aviso(`Turno ${p?.numero_turno ?? ''} listo · ${p?.cliente ?? ''}`, 'ok', 2500);
-  });
-}
-
-// El cliente nunca recogió el pedido: se cierra como "No recogido" y sale de la pantalla de turnos
-function noVino(id) {
-  const p = (typeof cola !== 'undefined' ? cola : pedidos).find(x => x.id_pedido === id);
-  if (!p || !sesion) return;
-  const d = abrirDialogo(`<h2>¿El cliente no vino por el turno #${esc(p.numero_turno)}?</h2>
-    <p class="suave">${esc(p.cliente)} · el pedido se cierra como <strong>no recogido</strong> y sale de la pantalla.</p>
-    <div class="mensaje error oculto" id="msg-nv"></div>
-    <div class="pie-dialogo"><button data-cerrar>No, esperar</button><button class="peligro" data-si>Sí, no vino</button></div>`);
-  d.querySelector('[data-cerrar]').onclick = () => d.close();
-  d.querySelector('[data-si]').onclick = async ev => {
-    ev.target.disabled = true;
-    const r = await cambiarEstado(id, 'No recogido');
-    if (!r.ok) { ev.target.disabled = false; return mostrarMensaje(d.querySelector('#msg-nv'), r.mensaje); }
-    d.close(); aviso(`Turno ${p.numero_turno} cerrado como no recogido`, 'ok', 2500);
-    ultimoHtmlCola = ''; cargarCola();
-  };
-}
-
-function entregar(id) {
-  const p = cola.find(x => x.id_pedido === id);
-  if (!p || !sesion) return;
-  const d = abrirDialogo(`
-    <h2 style="text-align:center">¿El cliente mostró el turno?</h2>
-    <div class="turno-confirmar">#${esc(p.numero_turno)}</div>
-    <p style="text-align:center;margin:0 0 6px"><strong>${esc(p.cliente)}</strong></p>
-    <ul>${(p.items || []).map(i => `<li>${esc(i.cantidad)} × ${esc(i.producto)}</li>`).join('')}</ul>
-    <div class="mensaje error oculto" id="msg-ent"></div>
-    <div class="medios"><button class="primario" data-si>✓ Sí, entregar</button></div>
-    <div class="pie-dialogo"><button class="enlace" data-problema>Hubo un problema</button><button data-cerrar>Cancelar</button></div>`);
-  d.querySelector('[data-cerrar]').onclick = () => d.close();
-  const enviar = async correcto => {
-    d.querySelectorAll('button').forEach(b => b.disabled = true);
-    d.dataset.ocupado = '1';
-    const r = await cambiarEstado(id, 'Entregado', { numero_turno: Number(p.numero_turno), entregado_correcto: correcto });
-    delete d.dataset.ocupado;
-    if (!r.ok) { d.querySelectorAll('button').forEach(b => b.disabled = false); return mostrarMensaje(d.querySelector('#msg-ent'), r.mensaje); }
-    d.close();
-    aviso(correcto ? `Turno ${p.numero_turno} entregado` : `Turno ${p.numero_turno} entregado con novedad. Si el cliente reclama, regístralo con el botón Reclamo.`,
-          correcto ? 'ok' : 'error', correcto ? 2500 : 6000);
-    ultimoHtmlCola = ''; cargarCola();
-  };
-  d.querySelector('[data-si]').onclick = () => enviar(true);
-  d.querySelector('[data-problema]').onclick = () => {
-    if (!d.querySelector('[data-confirma-problema]')) {
-      d.querySelector('#msg-ent').insertAdjacentHTML('beforebegin', `<div class="mensaje error">Se registrará la entrega como <strong>incorrecta</strong>
-        (incompleta, equivocada o a otra persona). <button class="peligro" data-confirma-problema style="margin-top:8px;width:100%">Registrar entrega con problema</button></div>`);
-      d.querySelector('[data-confirma-problema]').onclick = () => enviar(false);
-    }
-  };
-}
-
-document.body.addEventListener('click', e => {
-  const listo = e.target.closest('[data-listo]'), ent = e.target.closest('[data-entregar]');
-  if (listo) return marcarListo(listo.dataset.listo);
-  if (ent) return entregar(ent.dataset.entregar);
-  const nv = e.target.closest('[data-novino]');
-  if (nv) return noVino(nv.dataset.novino);
-  // Tocar una comanda nueva la marca «En preparación» (opcional)
-  const c = e.target.closest('.comanda.pagado');
-  if (c) {
-    const id = c.dataset.pedido;
-    trabajar(id, async () => {
-      const r = await cambiarEstado(id, 'En preparación');
-      if (!r.ok) mostrarMensaje($('#msg'), r.mensaje);
-    });
-  }
-});
-
-
 async function iniciar() {
   const cat = await cargarCatalogo(idCaf);
   llenarSelect($('#sel-caf'), cat.cafeterias.map(c => ({ value: c.id_cafeteria, label: c.nombre })), idCaf);
   if (cat.cafeterias.length < 2) $('#sel-caf').classList.add('oculto');
-  productos = cat.productos; pintar(); cargarPendientes(); cargarCola();
+  productos = cat.productos; pintar(); cargarPendientes();
   sesion = await pedirIngreso('caja', idCaf, cat.empleados);
   $('#usuario').innerHTML = `${esc(sesion.nombre)} <button id="btn-salir">Salir</button>`;
   $('#btn-salir').onclick = () => cerrarSesion('caja', idCaf);
@@ -550,7 +364,6 @@ async function iniciar() {
 $('#sel-caf').onchange = e => { location.search = `?cafeteria=${e.target.value}`; };
 iniciar().catch(e => mostrarMensaje($('#msg-pedido'), e.message));
 setInterval(cargarPendientes, 5000);
-setInterval(cargarCola, 4000);
 </script>
 </body>
 </html>
