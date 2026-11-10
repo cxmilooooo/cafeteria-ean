@@ -70,7 +70,7 @@
       <div id="aviso-listo" class="aviso-listo oculto" style="margin-top:14px">¡Tu pedido está listo! Acércate al punto de entrega y muestra tu turno.</div>
       <div id="bloque-pago" class="mensaje ok" style="margin-top:16px;text-align:left">
         <strong>Siguiente paso:</strong> acércate a la caja, di tu turno <strong id="turno-caja"></strong> y paga.
-        El cajero autoriza tu pedido y en ese momento pasa a cocina. Si no se autoriza en 10 minutos, el turno se cancela.
+        El cajero autoriza tu pedido y en ese momento pasa a cocina. Si no se paga a tiempo (10 minutos, o 20 en hora pico), el turno se cancela.
       </div>
       <div id="msg-turno" class="mensaje oculto"></div>
       <button id="btn-nuevo" class="oculto" style="margin-top:14px">Hacer otro pedido</button>
@@ -163,7 +163,7 @@ async function actualizar() {
   const textos = {
     'Registrado': 'Esperando autorización en caja', 'Pagado': `Autorizado · en cola, ${r.pedidos_antes} pedido(s) antes que el tuyo`,
     'En preparación': `Preparando tu pedido · ${r.pedidos_antes} antes que el tuyo`, 'Listo': '¡Listo para recoger!',
-    'Entregado': 'Entregado. ¡Buen provecho!', 'Abandonado': 'El turno se canceló porque no se autorizó en caja a tiempo.'
+    'Entregado': 'Entregado. ¡Buen provecho!', 'Abandonado': 'El turno se canceló porque no se autorizó en caja a tiempo.', 'No recogido': 'El pedido se cerró porque no se recogió.'
   };
   $('#estado-texto').textContent = textos[r.estado] ?? r.estado;
   $('#bloque-pago').classList.toggle('oculto', r.estado !== 'Registrado');
@@ -181,6 +181,14 @@ function mostrarTurno(id) {
   setInterval(actualizar, 4000);
 }
 $('#btn-nuevo').onclick = () => { try { localStorage.removeItem('cafeteria_pedido'); } catch (e) {} location.reload(); };
+
+// Precios y disponibilidad al día mientras el cliente arma su pedido
+setInterval(async () => {
+  if ($('#paso-menu').classList.contains('oculto')) return;
+  try { productos = (await cargarCatalogo(idCafeteria)).productos;
+        for (const id of Object.keys(carrito)) { const p = productos.find(x => x.id_producto == id); if (!p || !p.disponible) delete carrito[id]; }
+        pintarMenu(); } catch (e) {}
+}, 60000);
 
 (async () => {
   try {

@@ -243,8 +243,24 @@ function dialogoCobro({ titulo, detalle, total, items }, accion) {
 const listaItems = items => items.map(i => `<li>${i.cantidad} × ${esc(i.producto)}${i.observaciones ? ` <span class="nota">(${esc(i.observaciones)})</span>` : ''}</li>`).join('');
 
 // Pedido hecho en caja: registrar + autorizar en un solo paso
-$('#btn-cobrar').onclick = () => {
+// Recarga precios y disponibilidad (por si el coordinador cambió algo)
+async function refrescarMenu() {
+  try {
+    const cat = await cargarCatalogo(idCaf);
+    productos = cat.productos;
+    for (const id of Object.keys(carrito)) {          // quita del carrito lo que se agotó
+      const p = producto(id);
+      if (!p || !p.disponible) { delete carrito[id]; aviso(`${p ? p.nombre : 'Un producto'} se agotó y se quitó del pedido`, 'error', 4000); }
+    }
+    if (!hayDialogoAbierto()) pintar();
+  } catch (e) { /* sin conexión: se mantiene el menú anterior */ }
+}
+setInterval(refrescarMenu, 60000);
+
+$('#btn-cobrar').onclick = async () => {
   if (!sesion || !Object.keys(carrito).length) return;
+  await refrescarMenu();
+  if (!Object.keys(carrito).length) return;
   const nombre = $('#nombre-caja').value.trim();
   if (!nombre) {
     $('#nombre-caja').classList.add('falta'); $('#nombre-caja').focus();
@@ -292,7 +308,7 @@ async function cargarPendientes() {
   const html = pendientes.map(p => `
     <div class="qr">
       <div class="cab"><span class="num">#${esc(p.numero_turno)}</span><span class="quien" title="${esc(p.cliente)}">${esc(p.cliente)}</span>
-        <span class="chip ${p.minutos > 7 ? 'alerta' : ''}" title="Se cancela si no se cobra en 10 min">${Math.floor(Number(p.minutos) || 0)} min</span></div>
+        <span class="chip ${p.minutos > 7 ? 'alerta' : ''}" title="Se cancela si no se cobra a tiempo (10 min; 20 en hora pico)">${Math.floor(Number(p.minutos) || 0)} min</span></div>
       <div class="items">${(p.items || []).map(i => `${esc(i.cantidad)}× ${esc(i.producto)}${i.observaciones ? ` <span class="nota">(${esc(i.observaciones)})</span>` : ''}`).join(', ')}</div>
       <button class="primario" style="font-size:1.1rem;font-weight:700;min-height:50px" data-cobrar="${esc(p.id_pedido)}">Cobrar ${pesos(p.valor_total)}</button>
     </div>`).join('');
@@ -394,7 +410,9 @@ function comanda(p) {
     return `<div class="comanda" data-pedido="${id}">
       <span class="num">#${esc(p.numero_turno)}</span>
       <div class="info"><span class="quien">${esc(p.cliente)}</span><span class="suave">${(p.items || []).length} producto(s) · ${esc(p.id_pedido)}</span></div>
-      <button class="primario" data-entregar="${id}" ${ocupado}>Entregar</button></div>`;
+      <div style="display:flex;flex-direction:column;gap:4px;align-items:stretch">
+        <button class="primario" data-entregar="${id}" ${ocupado}>Entregar</button>
+        <button class="enlace" data-novino="${id}" ${ocupado} title="El cliente no vino a recogerlo">No vino</button></div></div>`;
   }
   const preparando = p.estado === 'En preparación';
   return `<div class="comanda ${preparando ? 'preparando' : 'pagado'} ${t > MIN_ANTIGUA ? 'antigua' : ''}" data-pedido="${id}"
@@ -450,6 +468,24 @@ async function marcarListo(id) {
   });
 }
 
+// El cliente nunca recogió el pedido: se cierra como "No recogido" y sale de la pantalla de turnos
+function noVino(id) {
+  const p = (typeof cola !== 'undefined' ? cola : pedidos).find(x => x.id_pedido === id);
+  if (!p || !sesion) return;
+  const d = abrirDialogo(`<h2>¿El cliente no vino por el turno #${esc(p.numero_turno)}?</h2>
+    <p class="suave">${esc(p.cliente)} · el pedido se cierra como <strong>no recogido</strong> y sale de la pantalla.</p>
+    <div class="mensaje error oculto" id="msg-nv"></div>
+    <div class="pie-dialogo"><button data-cerrar>No, esperar</button><button class="peligro" data-si>Sí, no vino</button></div>`);
+  d.querySelector('[data-cerrar]').onclick = () => d.close();
+  d.querySelector('[data-si]').onclick = async ev => {
+    ev.target.disabled = true;
+    const r = await cambiarEstado(id, 'No recogido');
+    if (!r.ok) { ev.target.disabled = false; return mostrarMensaje(d.querySelector('#msg-nv'), r.mensaje); }
+    d.close(); aviso(`Turno ${p.numero_turno} cerrado como no recogido`, 'ok', 2500);
+    ultimoHtmlCola = ''; cargarCola();
+  };
+}
+
 function entregar(id) {
   const p = cola.find(x => x.id_pedido === id);
   if (!p || !sesion) return;
@@ -487,6 +523,8 @@ document.body.addEventListener('click', e => {
   const listo = e.target.closest('[data-listo]'), ent = e.target.closest('[data-entregar]');
   if (listo) return marcarListo(listo.dataset.listo);
   if (ent) return entregar(ent.dataset.entregar);
+  const nv = e.target.closest('[data-novino]');
+  if (nv) return noVino(nv.dataset.novino);
   // Tocar una comanda nueva la marca «En preparación» (opcional)
   const c = e.target.closest('.comanda.pagado');
   if (c) {

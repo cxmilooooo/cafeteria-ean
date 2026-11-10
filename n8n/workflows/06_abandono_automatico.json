@@ -12,7 +12,7 @@
         -260
       ],
       "parameters": {
-        "content": "## 06 · Abandono automático\nCorre **cada minuto**.\n\nTodo turno *Registrado* que no se paga en **10 minutos** se cancela, queda como *Abandonado* con `abandono_fila = true` y se anota en el historial. Alimenta el **KPI 5**.",
+        "content": "## 06 · Abandono automático\nCorre **cada minuto**.\n\nTodo turno *Registrado* que no se paga en **10 minutos (20 en hora pico)** se cancela, queda como *Abandonado* con `abandono_fila = true` y se anota en el historial. Alimenta el **KPI 5**. También cierra como *No recogido* los pedidos de días anteriores que quedaron abiertos.",
         "width": 380,
         "height": 300,
         "color": 7

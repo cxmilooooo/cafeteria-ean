@@ -48,7 +48,7 @@ KPIS = {
              "fuente": "pedido.estado + franja_horaria.es_hora_pico"},
     "kpi4": {"nombre": "Tiempo promedio de espera en fila", "unidad": "min", "meta": 3.0, "sentido": "menor",
              "linea_base": None, "formula": "Σ minutos de espera / # clientes atendidos",
-             "fuente": "pedido.hora_llegada_fila → pedido.hora_toma_pedido"},
+             "fuente": "pedido.hora_llegada_fila → pedido.hora_toma_pedido (en caja se mide desde que se empieza a atender; en QR, el tiempo armando el pedido, máx. 10 min)"},
     "kpi5": {"nombre": "Abandono de fila", "unidad": "%", "meta": 2.0, "sentido": "menor",
              "linea_base": None, "formula": "(# clientes que abandonan / # clientes que llegan) × 100",
              "fuente": "pedido.abandono_fila"},

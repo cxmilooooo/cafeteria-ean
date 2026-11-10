@@ -50,6 +50,16 @@ def tablero():
             st.dataframe(tabla, hide_index=True, use_container_width=True,
                          height=min(38 + 35 * len(tabla), 420))
 
+    caja = datos.caja_hoy()
+    ui.subtitulo("Cierre de caja de hoy", "Lo que debería haber en caja y en cada medio de pago.")
+    if caja.empty:
+        st.caption("Todavía no hay cobros hoy.")
+    else:
+        total = float(caja["Total"].sum())
+        caja["Total"] = caja["Total"].map(lambda v: ui.pesos(float(v)))
+        st.dataframe(caja, hide_index=True, use_container_width=True)
+        st.markdown(f"**Total del día: {ui.pesos(total)}**")
+
     alertas = datos.alertas_hoy(f["cafeterias"])
     ui.subtitulo(f"Alertas de hoy ({len(alertas)})",
                  "Las envía el sistema cuando la espera supera 3 minutos, falla un respaldo u ocurre un error.")

@@ -256,8 +256,8 @@ w.save("05_estados_y_aviso.json")
 
 # ---------------------------------------------------------------- 06 abandono
 w = WF("CafeEAN06Abandon", "06 · Abandono automático de turnos sin pago (RN-04 · RF-11)",
-       "## 06 · Abandono automático\nCorre **cada minuto**.\n\nTodo turno *Registrado* que no se paga en **10 minutos** se cancela, "
-       "queda como *Abandonado* con `abandono_fila = true` y se anota en el historial. Alimenta el **KPI 5**.")
+       "## 06 · Abandono automático\nCorre **cada minuto**.\n\nTodo turno *Registrado* que no se paga en **10 minutos (20 en hora pico)** se cancela, "
+       "queda como *Abandonado* con `abandono_fila = true` y se anota en el historial. Alimenta el **KPI 5**. También cierra como *No recogido* los pedidos de días anteriores que quedaron abiertos.")
 s = w.add("Cada minuto", "n8n-nodes-base.scheduleTrigger", 1.2,
           {"rule": {"interval": [{"field": "minutes", "minutesInterval": 1}]}}, [0, 0])
 p = w.pg("Cancelar turnos vencidos", "SELECT fn_marcar_abandonos(10) AS r", [240, 0])
@@ -268,13 +268,13 @@ w.save("06_abandono_automatico.json")
 w = WF("CafeEAN07Alerta3", "07 · Alerta de espera en hora pico (RF-14 · KPI 4)",
        "## 07 · Alerta de espera\nCorre **cada 5 minutos**. Solo actúa dentro de las franjas pico (RN-05: 10–11 y 12–14).\n\n"
        "Si la espera promedio de los últimos 30 min supera **3 minutos**, registra la alerta y avisa al coordinador para que "
-       "abra la **terminal de cobro móvil** (control del riesgo 2). No repite la alerta en 15 minutos.")
+       "una persona se dedique solo a cobrar mientras la otra prepara y entrega. No repite la alerta en 15 minutos.")
 s = w.add("Cada 5 minutos", "n8n-nodes-base.scheduleTrigger", 1.2,
           {"rule": {"interval": [{"field": "minutes", "minutesInterval": 5}]}}, [0, 0])
 p = w.pg("Medir espera por cafetería", "SELECT * FROM fn_evaluar_espera(3)", [240, 0])
 a = w.pg("Registrar alerta", "INSERT INTO alerta (id_cafeteria, tipo, mensaje, valor) VALUES ($1, 'Espera alta', $2, $3) RETURNING *",
          [480, 0],
-         "={{ [ $json.id_cafeteria, `Espera promedio de ${$json.espera_promedio} min en ${$json.franja} (${$json.pedidos} pedidos, ${$json.pendientes_cocina} en cocina). Meta ≤ 3 min: abrir cobro móvil.`, $json.espera_promedio ] }}")
+         "={{ [ $json.id_cafeteria, `Espera promedio de ${$json.espera_promedio} min en ${$json.franja} (${$json.pedidos} pedidos, ${$json.pendientes_cocina} en cocina). Meta ≤ 3 min: que una persona se dedique solo a cobrar hasta que baje la fila.`, $json.espera_promedio ] }}")
 m = w.code("Mensaje al coordinador", """return $input.all().map(i => ({ json: {
   mensaje: `⏱️ ${i.json.mensaje}`
 }}));""", [720, 0])

@@ -84,7 +84,7 @@ CREATE TABLE pedido (
     hora_listo         TIME,
     hora_entrega       TIME,
     estado             VARCHAR(15) NOT NULL DEFAULT 'Registrado'
-        CHECK (estado IN ('Registrado','Pagado','En preparación','Listo','Entregado','Abandonado')),
+        CONSTRAINT pedido_estado_check CHECK (estado IN ('Registrado','Pagado','En preparación','Listo','Entregado','Abandonado','No recogido')),
     abandono_fila      BOOLEAN NOT NULL DEFAULT FALSE,
     entregado_correcto BOOLEAN,
     valor_total        DECIMAL(10,2) NOT NULL DEFAULT 0

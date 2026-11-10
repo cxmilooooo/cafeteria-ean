@@ -102,6 +102,24 @@ def estado_sistema() -> dict:
     return r
 
 
+def caja_hoy() -> pd.DataFrame:
+    """Cierre de caja: ventas del día por medio de pago."""
+    return consulta(
+        """SELECT pg.medio_pago AS "Medio de pago", count(*) AS "Pedidos", sum(pg.valor) AS "Total"
+             FROM pago pg JOIN pedido p ON p.id_pedido = pg.id_pedido
+            WHERE p.fecha = (now() AT TIME ZONE 'America/Bogota')::date
+            GROUP BY pg.medio_pago ORDER BY 3 DESC""")
+
+
+def reclamos_abiertos() -> pd.DataFrame:
+    return consulta(
+        """SELECT r.id_reclamo, to_char(r.fecha_hora, 'DD/MM HH24:MI') AS fecha, p.numero_turno,
+                  coalesce(cl.nombre, 'Cliente') AS cliente, r.tipo_reclamo, r.descripcion
+             FROM reclamo r JOIN pedido p ON p.id_pedido = r.id_pedido
+             LEFT JOIN cliente cl ON cl.id_cliente = p.id_cliente
+            WHERE r.estado = 'Abierto' ORDER BY r.fecha_hora""")
+
+
 # --- Administración (menú y personal) -------------------------------------------
 def menu() -> pd.DataFrame:
     df = consulta("SELECT id_producto, nombre, categoria, precio, disponible FROM producto ORDER BY categoria, nombre")

@@ -37,7 +37,25 @@ else:
     mon = f"{'✅' if est['monitoreo'] == 'OK' else '⚠️'} Monitoreo: {est['monitoreo']} ({est['hora_monitoreo']})"
 st.markdown(f"<div class='estado-sistema'>Estado del sistema · {resp} · {mon}</div>", unsafe_allow_html=True)
 
-tab_menu, tab_personal, tab_qr = st.tabs(["🍽️ Menú", "👥 Personal", "🔳 Códigos QR"])
+rec_abiertos = datos.reclamos_abiertos()
+tab_menu, tab_personal, tab_reclamos, tab_qr = st.tabs(
+    ["🍽️ Menú", "👥 Personal", f"⚠️ Reclamos ({len(rec_abiertos)})", "🔳 Códigos QR"])
+
+with tab_reclamos:
+    if rec_abiertos.empty:
+        st.success("No hay reclamos abiertos.", icon="✅")
+    for r in rec_abiertos.itertuples():
+        with st.container(border=True):
+            st.markdown(f"**Turno {r.numero_turno} · {r.cliente}** — {r.tipo_reclamo} · {r.fecha}")
+            st.caption(r.descripcion)
+            with st.form(f"resolver_{r.id_reclamo}", border=False):
+                sol = st.text_input("¿Cómo se resolvió?", key=f"sol_{r.id_reclamo}", max_chars=300,
+                                    placeholder="Ej.: se repuso el producto")
+                if st.form_submit_button("Marcar resuelto", type="primary"):
+                    datos.ejecutar("UPDATE reclamo SET estado = 'Resuelto', solucion = :s WHERE id_reclamo = :i",
+                                   s=(sol or "Resuelto").strip(), i=int(r.id_reclamo))
+                    st.toast("Reclamo resuelto.", icon="✅")
+                    st.rerun()
 
 
 # --- (a) Menú ----------------------------------------------------------------------

@@ -242,7 +242,7 @@ BEGIN
         RETURN fn_error('MEDIO', 'Medio de pago no válido');
     END IF;
 
-    v_fact := 'FE-' || to_char(ahora_local(), 'YYYYMMDD') || '-' || lpad(nextval('factura_seq')::text, 5, '0');
+    v_fact := 'TK-' || to_char(ahora_local(), 'YYYYMMDD') || '-' || lpad(nextval('factura_seq')::text, 5, '0');
     INSERT INTO pago (id_pedido, medio_pago, valor, numero_factura)
     VALUES (v_id, v_medio, v_ped.valor_total, v_fact);
 
@@ -285,7 +285,8 @@ BEGIN
 
     v_previo := CASE v_nuevo WHEN 'En preparación' THEN 'Pagado'
                              WHEN 'Listo'          THEN 'En preparación'
-                             WHEN 'Entregado'      THEN 'Listo' END;
+                             WHEN 'Entregado'      THEN 'Listo'
+                             WHEN 'No recogido'    THEN 'Listo' END;   -- el cliente nunca vino
     IF v_previo IS NULL THEN
         RETURN fn_error('ESTADO', 'Estado destino no válido: ' || coalesce(v_nuevo, ''));
     END IF;
@@ -301,6 +302,8 @@ BEGIN
                           id_preparador = coalesce(id_preparador, v_emp)
          WHERE id_pedido = v_id;
         INSERT INTO notificacion (id_pedido, tipo, canal) VALUES (v_id, 'Pedido listo', 'Web/Pantalla');
+    ELSIF v_nuevo = 'No recogido' THEN
+        UPDATE pedido SET estado = v_nuevo WHERE id_pedido = v_id;
     ELSE
         IF v_turno IS NULL OR v_turno <> v_ped.numero_turno THEN
             RETURN fn_error('TURNO', 'El número de turno no coincide con el pedido');
@@ -444,24 +447,37 @@ BEGIN
 END $$;
 
 -- ---------------------------------------------------------------------
--- RN-04 / RF-11: turnos no pagados en 10 minutos se cancelan como abandono
+-- RN-04 / RF-11: turnos no pagados se cancelan como abandono: a los 10 minutos,
+-- o a los 20 si se pidieron en hora pico (la fila para pagar es más larga).
+-- Además cierra como "No recogido" los pedidos de días anteriores que quedaron abiertos.
 -- ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION fn_marcar_abandonos(p_minutos int DEFAULT 10) RETURNS jsonb
 LANGUAGE plpgsql AS $$
 DECLARE
     v_ids text[];
+    v_viejos text[];
 BEGIN
     WITH upd AS (
-        UPDATE pedido SET estado = 'Abandonado', abandono_fila = true
-         WHERE estado = 'Registrado'
-           AND (fecha + hora_toma_pedido) < ahora_local() - make_interval(mins => p_minutos)
-        RETURNING id_pedido
+        UPDATE pedido p SET estado = 'Abandonado', abandono_fila = true
+          FROM franja_horaria f
+         WHERE f.id_franja = p.id_franja AND p.estado = 'Registrado'
+           AND (p.fecha + p.hora_toma_pedido) < ahora_local()
+               - make_interval(mins => CASE WHEN f.es_hora_pico THEN GREATEST(p_minutos, 20) ELSE p_minutos END)
+        RETURNING p.id_pedido
     ) SELECT array_agg(id_pedido) INTO v_ids FROM upd;
-
     INSERT INTO historial_estado (id_pedido, estado_anterior, estado_nuevo, origen)
     SELECT unnest(v_ids), 'Registrado', 'Abandonado', 'n8n: RN-04 sin pago';
 
+    WITH viejos AS (
+        UPDATE pedido SET estado = 'No recogido'
+         WHERE estado IN ('Pagado','En preparación','Listo') AND fecha < ahora_local()::date
+        RETURNING id_pedido
+    ) SELECT array_agg(id_pedido) INTO v_viejos FROM viejos;
+    INSERT INTO historial_estado (id_pedido, estado_anterior, estado_nuevo, origen)
+    SELECT unnest(v_viejos), 'Abierto', 'No recogido', 'n8n: cierre de día anterior';
+
     RETURN jsonb_build_object('ok', true, 'cancelados', coalesce(array_length(v_ids, 1), 0),
+                              'no_recogidos', coalesce(array_length(v_viejos, 1), 0),
                               'ids', coalesce(to_jsonb(v_ids), '[]'));
 END $$;
 

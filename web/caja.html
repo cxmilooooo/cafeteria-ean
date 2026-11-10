@@ -201,8 +201,24 @@ function dialogoCobro({ titulo, detalle, total, items }, accion) {
 const listaItems = items => items.map(i => `<li>${i.cantidad} × ${esc(i.producto)}${i.observaciones ? ` <span class="nota">(${esc(i.observaciones)})</span>` : ''}</li>`).join('');
 
 // Pedido hecho en caja: registrar + autorizar en un solo paso
-$('#btn-cobrar').onclick = () => {
+// Recarga precios y disponibilidad (por si el coordinador cambió algo)
+async function refrescarMenu() {
+  try {
+    const cat = await cargarCatalogo(idCaf);
+    productos = cat.productos;
+    for (const id of Object.keys(carrito)) {          // quita del carrito lo que se agotó
+      const p = producto(id);
+      if (!p || !p.disponible) { delete carrito[id]; aviso(`${p ? p.nombre : 'Un producto'} se agotó y se quitó del pedido`, 'error', 4000); }
+    }
+    if (!hayDialogoAbierto()) pintar();
+  } catch (e) { /* sin conexión: se mantiene el menú anterior */ }
+}
+setInterval(refrescarMenu, 60000);
+
+$('#btn-cobrar').onclick = async () => {
   if (!sesion || !Object.keys(carrito).length) return;
+  await refrescarMenu();
+  if (!Object.keys(carrito).length) return;
   const nombre = $('#nombre-caja').value.trim();
   if (!nombre) {
     $('#nombre-caja').classList.add('falta'); $('#nombre-caja').focus();
@@ -250,7 +266,7 @@ async function cargarPendientes() {
   const html = pendientes.map(p => `
     <div class="qr">
       <div class="cab"><span class="num">#${esc(p.numero_turno)}</span><span class="quien" title="${esc(p.cliente)}">${esc(p.cliente)}</span>
-        <span class="chip ${p.minutos > 7 ? 'alerta' : ''}" title="Se cancela si no se cobra en 10 min">${Math.floor(Number(p.minutos) || 0)} min</span></div>
+        <span class="chip ${p.minutos > 7 ? 'alerta' : ''}" title="Se cancela si no se cobra a tiempo (10 min; 20 en hora pico)">${Math.floor(Number(p.minutos) || 0)} min</span></div>
       <div class="items">${(p.items || []).map(i => `${esc(i.cantidad)}× ${esc(i.producto)}${i.observaciones ? ` <span class="nota">(${esc(i.observaciones)})</span>` : ''}`).join(', ')}</div>
       <button class="primario" style="font-size:1.1rem;font-weight:700;min-height:50px" data-cobrar="${esc(p.id_pedido)}">Cobrar ${pesos(p.valor_total)}</button>
     </div>`).join('');

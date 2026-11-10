@@ -12,7 +12,7 @@
         -260
       ],
       "parameters": {
-        "content": "## 07 · Alerta de espera\nCorre **cada 5 minutos**. Solo actúa dentro de las franjas pico (RN-05: 10–11 y 12–14).\n\nSi la espera promedio de los últimos 30 min supera **3 minutos**, registra la alerta y avisa al coordinador para que abra la **terminal de cobro móvil** (control del riesgo 2). No repite la alerta en 15 minutos.",
+        "content": "## 07 · Alerta de espera\nCorre **cada 5 minutos**. Solo actúa dentro de las franjas pico (RN-05: 10–11 y 12–14).\n\nSi la espera promedio de los últimos 30 min supera **3 minutos**, registra la alerta y avisa al coordinador para que una persona se dedique solo a cobrar mientras la otra prepara y entrega. No repite la alerta en 15 minutos.",
         "width": 380,
         "height": 300,
         "color": 7
@@ -72,7 +72,7 @@
         "operation": "executeQuery",
         "query": "INSERT INTO alerta (id_cafeteria, tipo, mensaje, valor) VALUES ($1, 'Espera alta', $2, $3) RETURNING *",
         "options": {
-          "queryReplacement": "={{ [ $json.id_cafeteria, `Espera promedio de ${$json.espera_promedio} min en ${$json.franja} (${$json.pedidos} pedidos, ${$json.pendientes_cocina} en cocina). Meta ≤ 3 min: abrir cobro móvil.`, $json.espera_promedio ] }}"
+          "queryReplacement": "={{ [ $json.id_cafeteria, `Espera promedio de ${$json.espera_promedio} min en ${$json.franja} (${$json.pedidos} pedidos, ${$json.pendientes_cocina} en cocina). Meta ≤ 3 min: que una persona se dedique solo a cobrar hasta que baje la fila.`, $json.espera_promedio ] }}"
         }
       },
       "credentials": {
