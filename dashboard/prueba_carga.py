@@ -17,7 +17,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import psycopg
 
-URL_API = os.environ.get("URL_API", "http://web/api")
+URL_API = os.environ.get("URL_API", "http://n8n:5678/webhook")  # directo a n8n (nginx limita por IP)
 DB = os.environ.get("DATABASE_URL", "").replace("postgresql+psycopg://", "postgresql://")
 MARCA = "PRUEBA CARGA"
 

@@ -62,20 +62,18 @@ Cuando termine:
 En n8n, la primera vez se pide crear un usuario dueño (correo y contraseña locales, no se
 envían a ningún lado). Los flujos ya aparecen importados y activos.
 
-### Usuarios y contraseñas de prueba
+### Claves y PIN
 
-Caja y cocina piden **empleado + PIN** (RNF-05). El dashboard pide la contraseña del coordinador.
+La primera instalación genera **una clave aleatoria para el dashboard y un PIN aleatorio para cada
+empleado**, y los guarda en el archivo **`credenciales.txt`** de la carpeta del proyecto (ese archivo no se
+sube a GitHub). Personal de ejemplo: Laura Gómez (caja), Andrés Rojas y Paola Martínez (cocina) y Carlos
+Ruiz (coordinador). Reemplácenlos por su personal real en **Dashboard → Administración → Personal**.
 
-| Quién | Rol | Cafetería | PIN |
-|---|---|---|---|
-| Laura Gómez | Cajero | Principal | 1111 |
-| Andrés Rojas | Cocina/barra | Principal | 2222 |
-| Paola Martínez | Cocina/barra | Principal | 3333 |
-| Carlos Ruiz | Coordinador (puede caja y cocina) | Principal | 9999 |
-| Dashboard | Coordinador | — | `coordinador2026` (variable `DASHBOARD_PASSWORD` en `.env`) |
-
-Los PIN se guardan cifrados (bcrypt). Tras 5 intentos fallidos el usuario queda bloqueado 5 minutos.
-Para cambiarlos: `docker compose exec postgres psql -U cafeteria -c "UPDATE empleado SET pin_hash = crypt('NUEVO', gen_salt('bf')) WHERE nombre = 'Laura Gómez'"`.
+- Los PIN se guardan cifrados (bcrypt). Tras 5 intentos fallidos el usuario queda bloqueado 5 minutos.
+- Para generar PIN nuevos para todos: `./scripts/generar_credenciales.sh`.
+- Instalación anterior a este cambio: sus PIN son los de ejemplo (1111, 2222…), que están publicados.
+  Ejecuten `./scripts/generar_credenciales.sh` y cambien `DASHBOARD_PASSWORD` en `.env`
+  (luego `docker compose up -d dashboard`).
 
 ### Empezar desde cero (borrar datos de prueba)
 

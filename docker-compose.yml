@@ -36,6 +36,10 @@ services:
       N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"    # los flujos leen TELEGRAM_* del entorno
       N8N_SECURE_COOKIE: "false"
       N8N_LISTEN_ADDRESS: 0.0.0.0
+      EXECUTIONS_DATA_SAVE_ON_SUCCESS: none     # no guardar ejecuciones exitosas (llevan PIN y nombres)
+      EXECUTIONS_DATA_SAVE_MANUAL_EXECUTIONS: "false"
+      EXECUTIONS_DATA_PRUNE: "true"
+      EXECUTIONS_DATA_MAX_AGE: "48"
       N8N_DIAGNOSTICS_ENABLED: "false"
       N8N_WEBHOOK_URL: http://localhost:${N8N_PORT:-5679}/
       TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
@@ -72,7 +76,7 @@ services:
       DASHBOARD_PASSWORD: ${DASHBOARD_PASSWORD:-coordinador2026}
       TZ: America/Bogota
     ports:
-      - "${DASHBOARD_PORT:-8501}:8501"
+      - "127.0.0.1:${DASHBOARD_PORT:-8501}:8501"   # el dashboard solo desde este PC
     depends_on:
       postgres:
         condition: service_healthy

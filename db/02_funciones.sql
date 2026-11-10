@@ -40,6 +40,10 @@ BEGIN
     IF v_emp.bloqueado_hasta IS NOT NULL AND v_emp.bloqueado_hasta > ahora_local() THEN
         RETURN fn_error('BLOQUEADO', 'Usuario bloqueado por intentos fallidos. Intenta en unos minutos.');
     END IF;
+    IF v_emp.bloqueado_hasta IS NOT NULL THEN   -- el bloqueo ya venció: se empieza de cero
+        UPDATE empleado SET intentos_fallidos = 0, bloqueado_hasta = NULL WHERE id_empleado = p_id;
+        v_emp.intentos_fallidos := 0;
+    END IF;
     IF v_emp.pin_hash IS NULL OR p_pin IS NULL OR crypt(p_pin, v_emp.pin_hash) <> v_emp.pin_hash THEN
         UPDATE empleado SET intentos_fallidos = intentos_fallidos + 1,
                bloqueado_hasta = CASE WHEN intentos_fallidos + 1 >= 5 THEN ahora_local() + interval '5 minutes' END
@@ -104,7 +108,7 @@ DECLARE
     v_caf       int  := (p->>'id_cafeteria')::int;
     v_canal     text := p->>'canal';
     v_cajero    int  := NULLIF(p->>'id_cajero','')::int;
-    v_seg       int  := LEAST(GREATEST(coalesce((p->>'segundos_espera')::int, 0), 0), 1800);
+    v_seg       int  := LEAST(GREATEST(coalesce((p->>'segundos_espera')::int, 0), 0), 600);
     v_llegada   timestamp;
     v_cli       jsonb := coalesce(p->'cliente', '{}'::jsonb);
     v_autoriza  boolean := coalesce((v_cli->>'autoriza_datos')::boolean, false);

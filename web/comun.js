@@ -9,13 +9,32 @@ async function api(ruta, datos) {
   try {
     resp = await fetch(`${API}/${ruta}`, opciones);
   } catch (e) {
-    return { ok: false, mensaje: 'Sin conexión con el sistema. Usar comandas foliadas (contingencia).' };
+    conexion(false);
+    return { ok: false, mensaje: 'Sin conexión con el sistema. Usar comandas en papel mientras vuelve.' };
   }
+  if (resp.status === 429) return { ok: false, mensaje: 'Demasiadas solicitudes seguidas. Espera unos segundos e intenta de nuevo.' };
+  if (resp.status >= 502) { conexion(false); return { ok: false, mensaje: 'El sistema no responde. Usar comandas en papel mientras vuelve.' }; }
+  conexion(true);
   try {
-    return await resp.json();
+    const j = await resp.json();
+    if (j && j.ok === undefined) return { ok: false, mensaje: 'No se pudo completar. Revisa los datos e intenta de nuevo.' };
+    return j;
   } catch (e) {
-    return { ok: false, mensaje: `El sistema respondió ${resp.status}. ¿Están activos los flujos de n8n?` };
+    return { ok: false, mensaje: 'No se pudo completar. Intenta de nuevo.' };
   }
+}
+
+// Aviso global si el sistema no responde 2 veces seguidas (para pasar a comandas en papel)
+let _fallos = 0;
+function conexion(ok) {
+  _fallos = ok ? 0 : _fallos + 1;
+  let b = document.getElementById('sin-conexion');
+  if (_fallos >= 2 && !b) {
+    b = document.createElement('div'); b.id = 'sin-conexion';
+    b.textContent = '⚠️ Sin conexión con el sistema. Usar comandas en papel; se recupera solo cuando vuelva.';
+    b.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:50;background:#b3261e;color:#fff;padding:12px 16px;font-weight:700;text-align:center';
+    document.body.appendChild(b);
+  } else if (ok && b) b.remove();
 }
 
 const pesos = v => '$' + Number(v || 0).toLocaleString('es-CO', { maximumFractionDigits: 0 });

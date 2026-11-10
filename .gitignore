@@ -1,3 +1,4 @@
 .env
 respaldos/*.sql.gz
 __pycache__/
+credenciales.txt
