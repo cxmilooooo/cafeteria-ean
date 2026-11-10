@@ -60,8 +60,8 @@ END $$;
 CREATE OR REPLACE FUNCTION api_ingreso(p jsonb) RETURNS jsonb
 LANGUAGE plpgsql AS $$
 DECLARE
-    v_roles text[] := CASE p->>'pantalla' WHEN 'cocina' THEN ARRAY['Cocina/barra','Coordinador']
-                                          ELSE ARRAY['Cajero','Coordinador'] END;
+    v_roles text[] := CASE p->>'pantalla' WHEN 'cocina' THEN ARRAY['Cocina/barra','Cajero','Coordinador']
+                                          ELSE ARRAY['Cajero','Coordinador'] END;  -- caja y mostrador
     v_err jsonb;
     v_emp empleado%ROWTYPE;
 BEGIN
@@ -275,7 +275,8 @@ BEGIN
     IF NOT FOUND THEN
         RETURN fn_error('NO_EXISTE', 'El pedido no existe');
     END IF;
-    v_err := fn_verificar_empleado(v_emp, p->>'pin', ARRAY['Cocina/barra','Coordinador'], v_ped.id_cafeteria);
+    -- Con 2 personas, el cajero también entrega y marca listo (pantalla Mostrador)
+    v_err := fn_verificar_empleado(v_emp, p->>'pin', ARRAY['Cocina/barra','Cajero','Coordinador'], v_ped.id_cafeteria);
     IF v_err IS NOT NULL THEN RETURN v_err; END IF;
 
     v_previo := CASE v_nuevo WHEN 'En preparación' THEN 'Pagado'
