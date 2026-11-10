@@ -22,10 +22,24 @@
   .prep .ficha .quien { font-size: clamp(1rem, 1.8vw, 1.4rem); font-weight: 600; }
   .pantalla { grid-template-columns: 1fr 2fr; }
   @media (max-width: 700px) { .pantalla { grid-template-columns: 1fr; } }
+  .activar { position: fixed; inset: 0; z-index: 30; display: flex; flex-direction: column; gap: 14px;
+             align-items: center; justify-content: center; background: rgba(0,0,0,.6); color: #fff; border: 0;
+             font: inherit; font-size: clamp(1.4rem, 3.5vw, 2.6rem); font-weight: 700; cursor: pointer; width: 100%; }
+  .activar small { font-size: clamp(.9rem, 1.6vw, 1.2rem); font-weight: 400; opacity: .85; }
+  .controles { display: flex; gap: 8px; align-items: center; }
+  .controles button { padding: 6px 12px; font-size: .9rem; min-height: 36px; }
 </style>
 </head>
 <body>
-<header class="barra"><h1 id="titulo">Turnos</h1><span class="suave" id="hora"></span></header>
+<header class="barra"><h1 id="titulo">Turnos</h1>
+  <div class="controles">
+    <button id="btn-voz" title="Anunciar en voz alta el turno y el nombre">🗣️ Voz: sí</button>
+    <button id="btn-probar" title="Probar el sonido">🔔 Probar</button>
+    <span class="suave" id="hora"></span>
+  </div>
+</header>
+<!-- Los navegadores no dejan sonar una página hasta que alguien la toca: un toque al encender la pantalla -->
+<button class="activar" id="activar">🔔 Toca para activar el sonido<small>Así sonará un tono y se anunciará el turno cuando un pedido esté listo</small></button>
 <div class="pantalla">
   <section class="prep"><h2>En preparación</h2><div class="lista" id="prep"></div></section>
   <section class="listos"><h2>¡Listo! Acércate al punto de entrega</h2><div class="lista" id="listos"></div></section>
@@ -33,6 +47,19 @@
 <script src="comun.js"></script>
 <script>
 const idCaf = parametro('cafeteria', '1');
+let conVoz = true;
+try { conVoz = localStorage.getItem('turnos_voz') !== 'no'; } catch (e) {}
+const pintarVoz = () => $('#btn-voz').textContent = conVoz ? '🗣️ Voz: sí' : '🔇 Voz: no';
+
+// Pedido listo: tono fuerte y, si está activado, anuncio por voz de cada turno ("Turno 12, María")
+function avisarListos(lista) {
+  tonoListo();
+  if (conVoz) setTimeout(() => lista.forEach(t => anunciar(`Turno ${t.numero_turno}, ${String(t.cliente).slice(0, 30)}`)), 2300);
+}
+$('#activar').onclick = () => { audio(); $('#activar').remove(); campana(); };
+$('#btn-probar').onclick = () => avisarListos([{ numero_turno: 1, cliente: 'prueba de sonido' }]);
+$('#btn-voz').onclick = () => { conVoz = !conVoz; try { localStorage.setItem('turnos_voz', conVoz ? 'si' : 'no'); } catch (e) {} pintarVoz(); };
+pintarVoz();
 let previos = null;
 
 const ficha = (t, nueva) => `<div class="ficha ${nueva ? 'nueva' : ''}">
@@ -47,7 +74,7 @@ async function cargar() {
   $('#prep').innerHTML = r.en_preparacion.map(t => ficha(t, false)).join('') || '<p class="suave">—</p>';
   $('#listos').innerHTML = r.listos.map(t => ficha(t, nuevos.some(n => n.id_pedido === t.id_pedido))).join('')
     || '<p class="suave">—</p>';
-  if (nuevos.length) campana();
+  if (nuevos.length) avisarListos(nuevos);
   previos = r.listos.map(t => t.id_pedido);
 }
 cargarCatalogo(idCaf).then(c => {

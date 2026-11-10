@@ -33,18 +33,55 @@ function mostrarMensaje(el, texto, tipo = 'error') {
   if (tipo === 'ok') setTimeout(() => el.classList.add('oculto'), 4000);
 }
 
-// Sonido corto sin archivos externos
-function campana() {
+// ---------------------------------------------------------------------
+// Sonidos sin archivos externos. Los navegadores bloquean el audio hasta que
+// la persona toca la página, así que el contexto de audio se "desbloquea" con
+// el primer toque o tecla y luego se reutiliza.
+// ---------------------------------------------------------------------
+let _audio = null;
+function audio() {
   try {
-    const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    [880, 1320].forEach((f, i) => {
-      const o = ctx.createOscillator(), g = ctx.createGain();
-      o.frequency.value = f; o.connect(g); g.connect(ctx.destination);
-      g.gain.setValueAtTime(0.2, ctx.currentTime + i * 0.18);
-      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.18 + 0.3);
-      o.start(ctx.currentTime + i * 0.18); o.stop(ctx.currentTime + i * 0.18 + 0.32);
-    });
-  } catch (e) { /* sin audio */ }
+    _audio ??= new (window.AudioContext || window.webkitAudioContext)();
+    if (_audio.state === 'suspended') _audio.resume();
+  } catch (e) { _audio = null; }
+  return _audio;
+}
+function sonidoDisponible() { return !!_audio && _audio.state === 'running'; }
+['pointerdown', 'keydown', 'touchstart'].forEach(ev =>
+  window.addEventListener(ev, () => audio(), { once: true, passive: true }));
+
+function _tonos(notas, volumen) {
+  const ctx = audio(); if (!ctx) return;
+  notas.forEach(([f, t, dur]) => {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'sine'; o.frequency.value = f; o.connect(g); g.connect(ctx.destination);
+    const t0 = ctx.currentTime + t;
+    g.gain.setValueAtTime(0.0001, t0);
+    g.gain.exponentialRampToValueAtTime(volumen, t0 + 0.02);
+    g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    o.start(t0); o.stop(t0 + dur + 0.05);
+  });
+}
+
+// Aviso corto (pedido nuevo en caja o cocina)
+function campana() { _tonos([[880, 0, 0.3], [1320, 0.18, 0.35]], 0.25); }
+
+// Pedido listo: tono fuerte de 3 notas, repetido dos veces para que se escuche en el mostrador
+function tonoListo() {
+  const notas = [[784, 0, 0.45], [988, 0.22, 0.45], [1319, 0.44, 0.8]];
+  _tonos([...notas, ...notas.map(([f, t, d]) => [f, t + 1.4, d])], 0.6);
+}
+
+// Anuncio por voz (si el navegador lo permite): "Turno 12, María"
+function anunciar(texto) {
+  try {
+    if (!('speechSynthesis' in window)) return;
+    const u = new SpeechSynthesisUtterance(texto);
+    u.lang = 'es-CO'; u.rate = 0.95; u.volume = 1;
+    const voz = speechSynthesis.getVoices().find(v => v.lang && v.lang.toLowerCase().startsWith('es'));
+    if (voz) u.voice = voz;
+    speechSynthesis.speak(u);
+  } catch (e) { /* sin voz */ }
 }
 
 // Selector de cafetería y de empleado reutilizable

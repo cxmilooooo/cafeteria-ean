@@ -170,7 +170,8 @@ async function actualizar() {
   $('#aviso-listo').classList.toggle('oculto', r.estado !== 'Listo');
   $('#btn-nuevo').classList.toggle('oculto', !['Entregado', 'Abandonado'].includes(r.estado));
   if (r.estado === 'Listo' && estadoPrevio !== 'Listo') {          // RF-08: aviso en el celular
-    campana(); if (navigator.vibrate) navigator.vibrate([300, 150, 300]);
+    tonoListo(); if (navigator.vibrate) navigator.vibrate([400, 150, 400, 150, 400]);
+    document.title = '✅ ¡Tu pedido está listo!';
   }
   estadoPrevio = r.estado;
 }
