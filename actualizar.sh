@@ -14,7 +14,7 @@ if ! grep -q '^CLAVE_PERSONAL=' .env 2>/dev/null; then
 fi
 
 echo "[..] Reconstruyendo y levantando..."
-docker compose up -d --build || exit 1
+docker compose up -d --build --force-recreate || exit 1
 
 echo "[..] Esperando la base de datos..."
 until docker compose exec -T postgres pg_isready -U cafeteria -d cafeteria >/dev/null 2>&1; do sleep 2; done

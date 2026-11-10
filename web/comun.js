@@ -16,12 +16,14 @@ async function api(ruta, datos) {
   if (resp.status === 429) return { ok: false, mensaje: 'Demasiadas solicitudes seguidas. Espera unos segundos e intenta de nuevo.' };
   if (resp.status >= 502) { conexion(false); return { ok: false, mensaje: 'El sistema no responde. Usar comandas en papel mientras vuelve.' }; }
   conexion(true);
+  if (resp.status === 401) return { ok: false, mensaje: 'Falta la clave del local. Recarga la página e ingrésala (usuario: personal).' };
   try {
     const j = await resp.json();
     if (j && j.ok === undefined) return { ok: false, mensaje: 'No se pudo completar. Revisa los datos e intenta de nuevo.' };
     return j;
   } catch (e) {
-    return { ok: false, mensaje: 'No se pudo completar. Intenta de nuevo.' };
+    if (resp.status === 404) return { ok: false, mensaje: 'El sistema está desactualizado o a medio actualizar. Ejecuta actualizar (o docker compose up -d --force-recreate) y recarga la página.' };
+    return { ok: false, mensaje: `No se pudo completar (código ${resp.status}). Intenta de nuevo.` };
   }
 }
 
